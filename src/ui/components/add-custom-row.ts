@@ -1,5 +1,5 @@
-import {Component, Setting} from 'obsidian';
-import {parseTextToHTMLWithoutOuterParagraph} from '../helpers';
+import {App, Setting} from 'obsidian';
+import {setElContent} from '../helpers';
 
 /**
  * AddCustomRow is meant to be used where you have a setting that needs a name a description, possibly a warning,
@@ -10,11 +10,11 @@ export abstract class AddCustomRow {
 
   constructor(
     public containerEl: HTMLElement,
-    public parentComponent: Component,
     public name: string,
     public description: string,
     public warning: string,
     private addInputBtnText: string,
+    protected app: App,
     protected saveSettings: () => void,
     private onAddInput: () => void) {
   }
@@ -23,18 +23,18 @@ export abstract class AddCustomRow {
     this.containerEl.createDiv({cls: 'setting-item-name', text: this.name});
 
     const descriptionAndWarningContainer = this.containerEl.createDiv({cls: 'setting-item-description'});
-
-    parseTextToHTMLWithoutOuterParagraph(this.description, descriptionAndWarningContainer.createEl('p', {cls: 'custom-row-description'}), this.parentComponent);
-    if (this.warning != null && this.warning.trim() != '') {
-      descriptionAndWarningContainer.createEl('p', {text: this.warning, cls: 'mod-warning'});
-    }
+    setElContent(this.description, descriptionAndWarningContainer.createEl('p', {cls: 'custom-row-description'}));
 
     new Setting(this.containerEl)
         .addButton((cb)=>{
-          cb.setButtonText(this.addInputBtnText)
-              .setCta()
+          cb.setIcon('plus-with-circle')
+              .setTooltip(this.addInputBtnText)
               .onClick(() => this.onAddInput());
-        });
+          cb.buttonEl.addClass('clickable-icon');
+        })
+        .setClass('linter-border-bottom')
+        .setDesc(this.warning ?? '')
+        .descEl.addClass('mod-warning');
 
     this.inputElDiv = this.containerEl.createDiv();
     this.showInputEls();

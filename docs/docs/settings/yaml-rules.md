@@ -513,15 +513,15 @@ tags:
 
 Alias: `format-yaml-array`
 
-Allows for the formatting of regular YAML arrays as either multi-line or single-line and `tags` and `aliases` are allowed to have some Obsidian specific YAML formats. **Note: that single string to single-line goes from a single string entry to a single-line array if more than 1 entry is present. The same is true for single string to multi-line except it becomes a multi-line array.**
+Allows for the formatting of regular YAML arrays as either multi-line or single-line and <code>tags</code> and <code>aliases</code> are allowed to have some Obsidian specific YAML formats. <b>Note: that single string to single-line goes from a single string entry to a single-line array if more than 1 entry is present. The same is true for single string to multi-line except it becomes a multi-line array.</b>
 
 ### Options
 
 | Name | Description | List Items | Default Value |
 | ---- | ----------- | ---------- | ------------- |
-| `Format YAML aliases section` | Turns on formatting for the YAML aliases section. You should not enable this option alongside the rule `YAML Title Alias` as they may not work well together or they may have different format styles selected causing unexpected results. | N/A | `true` |
+| `Format YAML aliases section` | Turns on formatting for the YAML aliases section. You should not enable this option alongside the rule <code>YAML Title Alias</code> as they may not work well together or they may have different format styles selected causing unexpected results. | N/A | `true` |
 | `Format YAML tags section` | Turns on formatting for the YAML tags section. | N/A | `true` |
-| `Default YAML array section style` | The style of other YAML arrays that are not `tags`, `aliases` or  in `Force key values to be single-line arrays` and `Force key values to be multi-line arrays` | `multi-line`: ```key:\n  - value```<br/><br/>`single-line`: ```key: [value]``` | `single-line` |
+| `Default YAML array section style` | The style of other YAML arrays that are not <code>tags</code>, <code>aliases</code> or  in <code>Force key values to be single-line arrays</code> and <code>Force key values to be multi-line arrays</code> | `multi-line`: ```key:\n  - value```<br/><br/>`single-line`: ```key: [value]``` | `single-line` |
 | `Format YAML array sections` | Turns on formatting for regular YAML arrays | N/A | `true` |
 | `Force key values to be single-line arrays` | Forces the YAML array for the new line separated keys to be in single-line format (leave empty to disable this option) | N/A |  |
 | `Force key values to be multi-line arrays` | Forces the YAML array for the new line separated keys to be in multi-line format (leave empty to disable this option) | N/A |  |
@@ -670,7 +670,7 @@ Move all tags to YAML frontmatter of the document.
 | Name | Description | List Items | Default Value |
 | ---- | ----------- | ---------- | ------------- |
 | `Body tag operation` | What to do with non-ignored tags in the body of the file once they have been moved to the frontmatter | `Nothing`: Leaves tags in the body of the file alone<br/><br/>`Remove hashtag`: Removes `#` from tags in content body after moving them to the YAML frontmatter<br/><br/>`Remove whole tag`: Removes the whole tag in content body after moving them to the YAML frontmatter. _Note that this removes the first space prior to the tag as well_ | `Nothing` |
-| `Tags to ignore` | The tags that will not be moved to the tags array or removed from the body content if `Remove the hashtag from tags in content body` is enabled. Each tag should be on a new line and without the `#`. **Make sure not to include the hashtag in the tag name.** | N/A |  |
+| `Tags to ignore` | The tags that will not be moved to the tags array or removed from the body content if <code>Remove the hashtag from tags in content body</code> is enabled. Each tag should be on a new line and without the <code>#</code>. <b>Make sure not to include the hashtag in the tag name.</b> | N/A |  |
 
 
 
@@ -939,7 +939,7 @@ arr2:
 
 Alias: `yaml-key-sort`
 
-Sorts the YAML keys based on the order and priority specified. **Note: may remove blank lines as well. Only works on non-nested keys.**
+Sorts the YAML keys based on the order and priority specified. <b>Note: may remove blank lines as well. Only works on non-nested keys.</b>
 
 ### Options
 
@@ -1079,10 +1079,13 @@ Keep track of the date the file was last edited in the YAML front matter. Gets d
 | ---- | ----------- | ---------- | ------------- |
 | `Date Created` | Insert the file creation date | N/A | `true` |
 | `Date Created Key` | Which YAML key to use for creation date | N/A | `date created` |
-| `Force Date Created Key Value Retention` | Reuses the value in the YAML frontmatter for date created instead of the file metadata which is useful for preventing file metadata changes from causing the value to change to a different value. | N/A | false |
+| `Date Created Source of Truth` | Specifies where to get the date created value from if it is already present in the frontmatter. | `file system`: The file system date created value is used to set the value of date created in the frontmatter<br/><br/>`frontmatter`: When a value is present in the frontmatter for date created, this value is used as the value for the date created | `file system` |
 | `Date Modified` | Insert the date the file was last modified | N/A | `true` |
 | `Date Modified Key` | Which YAML key to use for modification date | N/A | `date modified` |
-| `Format` | Moment date format to use (see [Moment format options](https://momentjscom.readthedocs.io/en/latest/moment/04-displaying/01-format/)) | N/A | `dddd, MMMM Do YYYY, h:mm:ss a` |
+| `Date Modified Source of Truth` | Specifies what way should be used to determine when the date modified should be updated if it is already present in the frontmatter. | `file system`: The file system date modified value is used to set the value of date modified in the frontmatter<br/><br/>`user or Linter edits`: When a value is present in the frontmatter for date modified, date modified is kept as is unless the Linter makes a change to a note or the user edits a note with the setting `Update YAML Timestamp on File Contents Update` set to something other than `Never`. | `file system` |
+| `Format` | Moment date format to use (see <a href="https://momentjscom.readthedocs.io/en/latest/moment/04-displaying/01-format/">Moment format options</a>) | N/A | `dddd, MMMM Do YYYY, h:mm:ss a` |
+| `Convert Local Time to UTC` | Uses UTC equivalent for saved dates instead of local time | N/A | false |
+| `Update YAML Timestamp on File Contents Update` | When the currently active note is modified, <code>YAML Timestamp</code> is run on the note. This should update the modified note timestamp if it is more than 5 seconds off from the current value. | `never`: never<br/><br/>`after 5 seconds`: after 5 seconds<br/><br/>`after 10 seconds`: after 10 seconds<br/><br/>`after 15 seconds`: after 15 seconds<br/><br/>`after 30 seconds`: after 30 seconds<br/><br/>`after 1 minute`: after 1 minute | `never` |
 
 ### Additional Info
 
@@ -1166,6 +1169,75 @@ After:
 `````` markdown
 ---
 modified: Wednesday, January 1st 2020, 4:00:00 pm
+---
+# H1
+``````
+</details>
+<details><summary>Header is set with convert to UTC option true</summary>
+
+Before:
+
+`````` markdown
+# H1
+``````
+
+After:
+
+`````` markdown
+---
+date created: 2020-01-01T14:00:00+00:00
+date modified: 2020-01-02T02:00:05+00:00
+---
+# H1
+``````
+</details>
+<details><summary>dateCreated option is false with convert to UTC option true</summary>
+
+Before:
+
+`````` markdown
+# H1
+``````
+
+After:
+
+`````` markdown
+---
+date modified: 2020-01-02T02:00:05+00:00
+---
+# H1
+``````
+</details>
+<details><summary>Date Created Key is set with convert to UTC option true</summary>
+
+Before:
+
+`````` markdown
+# H1
+``````
+
+After:
+
+`````` markdown
+---
+created: 2020-01-01T14:00:00+00:00
+---
+# H1
+``````
+</details>
+<details><summary>Date Modified Key is set with convert to UTC option true</summary>
+
+Before:
+
+`````` markdown
+# H1
+``````
+
+After:
+
+`````` markdown
+---
+modified: 2020-01-02T02:00:05+00:00
 ---
 # H1
 ``````
@@ -1278,16 +1350,22 @@ title: Filename
 
 Alias: `yaml-title-alias`
 
-Inserts the title of the file into the YAML frontmatter's aliases section. Gets the title from the first H1 or filename.
+Inserts or updates the title of the file into the YAML frontmatter's aliases section. Gets the title from the first H1 or filename.
 
 ### Options
 
 | Name | Description | List Items | Default Value |
 | ---- | ----------- | ---------- | ------------- |
-| `Preserve existing aliases section style` | If set, the `YAML aliases section style` setting applies only to the newly created sections | N/A | `true` |
+| `Preserve existing aliases section style` | If set, the <code>YAML aliases section style</code> setting applies only to the newly created sections | N/A | `true` |
 | `Keep alias that matches the filename` | Such aliases are usually redundant | N/A | false |
-| `Use the YAML key `linter-yaml-title-alias` to help with filename and heading changes` | If set, when the first H1 heading changes or filename if first H1 is not present changes, then the old alias stored in this key will be replaced with the new value instead of just inserting a new entry in the aliases array | N/A | `true` |
+| `Use the YAML key specified by <code>Alias Helper Key</code> to help with filename and heading changes` | If set, when the first H1 heading changes or filename if first H1 is not present changes, then the old alias stored in this key will be replaced with the new value instead of just inserting a new entry in the aliases array | N/A | `true` |
+| `Alias Helper Key` | The key to use to help keep track of what the last file name or heading was that was stored in the frontmatter by this rule. | N/A | `linter-yaml-title-alias` |
 
+### Additional Info
+
+
+!!! Note
+    An empty `Alias Helper Key` will be treated as if you are using `linter-yaml-title-alias` as the value.
 
 
 ### Examples
@@ -1409,5 +1487,24 @@ aliases:
 linter-yaml-title-alias: This is a Heading
 ---
 # This is a [Heading](markdown.md)
+``````
+</details>
+<details><summary>Using `title` as `Alias Helper Key` sets the value of `title` to the alias.</summary>
+
+Before:
+
+`````` markdown
+
+``````
+
+After:
+
+`````` markdown
+---
+aliases:
+  - Filename
+title: Filename
+---
+
 ``````
 </details>

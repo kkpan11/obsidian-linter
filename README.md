@@ -64,7 +64,7 @@ Each rule is its own set of logic and is designed to be run independently. This 
 - [remove-hyphenated-line-breaks](https://platers.github.io/obsidian-linter/settings/content-rules/#remove-hyphenated-line-breaks)
 - [remove-multiple-spaces](https://platers.github.io/obsidian-linter/settings/content-rules/#remove-multiple-spaces)
 - [strong-style](https://platers.github.io/obsidian-linter/settings/content-rules/#strong-style)
-- [two-spaces-between-lines-with-content](https://platers.github.io/obsidian-linter/settings/content-rules/#two-spaces-between-lines-with-content)
+- [two-spaces-between-lines-with-content](https://platers.github.io/obsidian-linter/settings/content-rules/#line-break-between-lines-with-content)
 - [unordered-list-style](https://platers.github.io/obsidian-linter/settings/content-rules/#unordered-list-style)
 
 ### Spacing rules
@@ -74,6 +74,7 @@ Each rule is its own set of logic and is designed to be run independently. This 
 - [convert-spaces-to-tabs](https://platers.github.io/obsidian-linter/settings/spacing-rules/#convert-spaces-to-tabs)
 - [empty-line-around-blockquotes](https://platers.github.io/obsidian-linter/settings/spacing-rules/#empty-line-around-blockquotes)
 - [empty-line-around-code-fences](https://platers.github.io/obsidian-linter/settings/spacing-rules/#empty-line-around-code-fences)
+- [empty-line-around-horizontal-rules](https://platers.github.io/obsidian-linter/settings/spacing-rules/#empty-line-around-horizontal-rules)
 - [empty-line-around-math-blocks](https://platers.github.io/obsidian-linter/settings/spacing-rules/#empty-line-around-math-blocks)
 - [empty-line-around-tables](https://platers.github.io/obsidian-linter/settings/spacing-rules/#empty-line-around-tables)
 - [heading-blank-lines](https://platers.github.io/obsidian-linter/settings/spacing-rules/#heading-blank-lines)

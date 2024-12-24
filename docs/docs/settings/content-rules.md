@@ -8,14 +8,50 @@
 
 Alias: `auto-correct-common-misspellings`
 
-Uses a dictionary of common misspellings to automatically convert them to their proper spellings. See [auto-correct map](https://github.com/platers/obsidian-linter/tree/master/src/utils/auto-correct-misspellings.ts) for the full list of auto-corrected words.
+Uses a dictionary of common misspellings to automatically convert them to their proper spellings. See <a href="https://github.com/platers/obsidian-linter/tree/master/src/utils/default-misspellings.md">auto-correct map</a> for the full list of auto-corrected words. <b>Note: this list can work on text from multiple languages, but this list is the same no matter what language is currently in use.</b>
 
 ### Options
 
 | Name | Description | List Items | Default Value |
 | ---- | ----------- | ---------- | ------------- |
 | `Ignore Words` | A comma separated list of lowercased words to ignore when auto-correcting | N/A |  |
+| `Skip Words with Multiple Capitals` | Will skip any files that have a capital letter in them other than as the first letter of the word. Acronyms and some other words can benefit from this. It may cause issues with proper nouns being properly fixed. | N/A | false |
+| `Extra Auto-Correct Source Files` | These are files that have a markdown table in them that have the initial word and the word to correct it to (these are case insensitive corrections). <b>Note: the tables used should have the starting and ending <code>\|</code> indicators present for each line.</b> | N/A |  |
 
+### Additional Info
+
+
+#### How to Use Custom Misspellings
+
+There is a default list of common misspellings that is used as the base for how this rule works.
+However, there may be instances where the user may want to add their own list of misspellings to handle.
+In those scenarios, they can add files to the list of files that have custom misspellings in them.
+
+##### Format
+
+A file that has custom misspellings in them can have any content in them. But the only content that will
+be parsed as custom misspellings should be found in a two column table. For example the following table
+will result in `th` being replaced with `the` and `tht` being replaced with `that`:
+
+``` markdown
+The following is a table with custom misspellings:
+| Replace | With |
+| ------- | ---- |
+| th | the |
+| tht | that |
+```
+
+!!! Note
+    The first two lines of the table are skipped (the header and separator) and all rows after that
+    must start and end with a pipe (`|`). If any do not start or end with a pipe or they have more
+    than 2 columns, then they will be skipped.
+
+##### Current Limitations
+
+- The list of custom replacements is only loaded automatically when the plugin first lints a file or when the file is added to the list of files that include custom misspellings
+    - There is an option to manually rerun the parse custom misspelling files from the Auto-Correct Common Misspellings settings
+- There is no way to specify that a word is to always be capitalized
+    - This is due to how the auto-correct rule was designed as it sets the first letter of the replacement word to the case of the first letter of the word being replaced
 
 
 ### Examples
@@ -96,6 +132,24 @@ After:
 
 `````` markdown
 http://www.Absoltely.com should not be corrected
+``````
+</details>
+<details><summary>Auto-correct misspellings skips words with multiple capital letters in them if `Skip Words with Multiple Capitals` is Enabled</summary>
+
+Before:
+
+`````` markdown
+HSA here will not be auto-corrected to Has since it has more than one capital letter.
+aADD will not be converted to add.
+But this also affects javaSrript(what should be JavaScript) and other proper names as well which will not be auto-corrected.
+``````
+
+After:
+
+`````` markdown
+HSA here will not be auto-corrected to Has since it has more than one capital letter.
+aADD will not be converted to add.
+But this also affects javaSrript(what should be JavaScript) and other proper names as well which will not be auto-corrected.
 ``````
 </details>
 
@@ -227,7 +281,7 @@ Add a default language to code fences that do not have a language specified.
 
 | Name | Description | List Items | Default Value |
 | ---- | ----------- | ---------- | ------------- |
-| `Programming Language` | Leave empty to do nothing. Languages tags can be found [here](https://prismjs.com/#supported-languages). | N/A |  |
+| `Programming Language` | Leave empty to do nothing. Languages tags can be found <a href="https://prismjs.com/#supported-languages">here</a>. | N/A |  |
 
 
 
@@ -552,14 +606,15 @@ After:
 
 Alias: `ordered-list-style`
 
-Makes sure that ordered lists follow the style specified. **Note: that 2 spaces or 1 tab is considered to be an indentation level.**
+Makes sure that ordered lists follow the style specified. <b>Note: that 2 spaces or 1 tab is considered to be an indentation level.</b>
 
 ### Options
 
 | Name | Description | List Items | Default Value |
 | ---- | ----------- | ---------- | ------------- |
-| `Number Style` | The number style used in ordered list indicators | `ascending`: Makes sure ordered list items are ascending (i.e. 1, 2, 3, etc.)<br/><br/>`lazy`: Makes sure ordered list item indicators all are the number 1 | `ascending` |
+| `Number Style` | The number style used in ordered list indicators | `ascending`: Makes sure ordered list items are ascending (i.e. 1, 2, 3, etc.)<br/><br/>`lazy`: Makes sure ordered list item indicators all are the same<br/><br/>`preserve`: Preserves ordered list item indicators as they are | `ascending` |
 | `Ordered List Indicator End Style` | The ending character of an ordered list indicator | `.`: Makes sure ordered list items indicators end in '.' (i.e `1.`)<br/><br/>`)`: Makes sure ordered list item indicators end in ')' (i.e. `1)`) | `.` |
+| `Preserve Starting Number` | Whether to preserve the starting number of an ordered list. This can be used to have an ordered list that has content in between the ordered list items. | N/A | `undefined` |
 
 
 
@@ -687,6 +742,126 @@ After:
 1) Item 3
 ``````
 </details>
+<details><summary>Ordered lists have list items set to ascending numerical order using initial indicator number when Number Style is `ascending` and `preserveStart` is enabled</summary>
+
+Before:
+
+`````` markdown
+1. Item 1
+2. Item 2
+4. Item 3
+
+Some text here
+
+4. Item 4
+5. Item 5
+7. Item 6
+``````
+
+After:
+
+`````` markdown
+1. Item 1
+2. Item 2
+3. Item 3
+
+Some text here
+
+4. Item 4
+5. Item 5
+6. Item 6
+``````
+</details>
+<details><summary>Nested ordered lists have list items set to ascending numerical order using initial indicator number when Number Style is `ascending` and `preserveStart` is enabled</summary>
+
+Before:
+
+`````` markdown
+4. Item 4
+2. Item 5
+  2. Subitem 2
+  5. Subitem 3
+  2. Subitem 4
+4. Item 6
+``````
+
+After:
+
+`````` markdown
+4. Item 4
+5. Item 5
+  2. Subitem 2
+  3. Subitem 3
+  4. Subitem 4
+6. Item 6
+``````
+</details>
+<details><summary>Ordered lists have list items set to initial indicator number when Number Style is `lazy` and `preserveStart` is enabled</summary>
+
+Before:
+
+`````` markdown
+2. Item 2
+5. Item 3
+4. Item 4
+``````
+
+After:
+
+`````` markdown
+2. Item 2
+2. Item 3
+2. Item 4
+``````
+</details>
+<details><summary>Nested ordered lists have list items set to initial indicator number when Number Style is `lazy` and `preserveStart` is enabled</summary>
+
+Before:
+
+`````` markdown
+4. Item 4
+2. Item 5
+  2. Subitem 2
+  5. Subitem 3
+  2. Subitem 4
+4. Item 6
+``````
+
+After:
+
+`````` markdown
+4. Item 4
+4. Item 5
+  2. Subitem 2
+  2. Subitem 3
+  2. Subitem 4
+4. Item 6
+``````
+</details>
+<details><summary>Ordered lists items are not modified when Number Style is `preserve`</summary>
+
+Before:
+
+`````` markdown
+4. Item 4
+2. Item 5
+  2. Subitem 2
+  5. Subitem 3
+  2. Subitem 4
+4. Item 6
+``````
+
+After:
+
+`````` markdown
+4. Item 4
+2. Item 5
+  2. Subitem 2
+  5. Subitem 3
+  2. Subitem 4
+4. Item 6
+``````
+</details>
 
 ## Proper Ellipsis
 
@@ -725,9 +900,9 @@ Updates the quotes in the body content to be updated to the specified single and
 
 | Name | Description | List Items | Default Value |
 | ---- | ----------- | ---------- | ------------- |
-| `Enable `Single Quote Style`` | Specifies that the selected single quote style should be used. | N/A | `true` |
+| `Enable <code>Single Quote Style</code>` | Specifies that the selected single quote style should be used. | N/A | `true` |
 | `Single Quote Style` | The style of single quotes to use. | `''`: Uses "'" instead of smart single quotes<br/><br/>`‘’`: Uses "‘" and "’" instead of straight single quotes | `''` |
-| `Enable `Double Quote Style`` | Specifies that the selected double quote style should be used. | N/A | `true` |
+| `Enable <code>Double Quote Style</code>` | Specifies that the selected double quote style should be used. | N/A | `true` |
 | `Double Quote Style` | The style of double quotes to use. | `""`: Uses '"' instead of smart double quotes<br/><br/>`“”`: Uses '“' and '”' instead of straight double quotes | `""` |
 
 
@@ -1194,13 +1369,17 @@ __Test bold__
 ``````
 </details>
 
-## Two Spaces Between Lines with Content
+## Line Break Between Lines with Content
 
 Alias: `two-spaces-between-lines-with-content`
 
-Makes sure that two spaces are added to the ends of lines with content continued on the next line for paragraphs, blockquotes, and list items
+Makes sure that the specified line break is added to the ends of lines with content continued on the next line for paragraphs, blockquotes, and list items
 
+### Options
 
+| Name | Description | List Items | Default Value |
+| ---- | ----------- | ---------- | ------------- |
+| `Line Break Indicator` | The line break indicator to use. | `  `:   <br/><br/>`<br/>`: <br/><br/><br/>`<br>`: <br><br/><br/>`\`: \ | `  ` |
 
 ### Additional Info
 
@@ -1211,7 +1390,7 @@ Makes sure that two spaces are added to the ends of lines with content continued
 
 ### Examples
 
-<details><summary>Make sure two spaces are added to the ends of lines that have content on it and the next line for lists, blockquotes, and paragraphs</summary>
+<details><summary>Make sure two spaces are added to the ends of lines that have content on it and the next line for lists, blockquotes, and paragraphs when the line break indicator is `  `</summary>
 
 Before:
 
@@ -1235,7 +1414,7 @@ Even more continuation
 
 Paragraph lines that end in <br/>
 Or lines that end in <br>
-Are left alone
+Are left swapped
 Since they mean the same thing
 
 ``` text
@@ -1276,9 +1455,9 @@ Paragraph for with link [[other file name]].
 Continuation *of* the paragraph has `inline code block` __in it__.  
 Even more continuation
 
-Paragraph lines that end in <br/>
-Or lines that end in <br>
-Are left alone  
+Paragraph lines that end in  
+Or lines that end in  
+Are left swapped  
 Since they mean the same thing
 
 ``` text

@@ -1,5 +1,5 @@
 import {Options, RuleType} from '../rules';
-import RuleBuilder, {BooleanOptionBuilder, ExampleBuilder, MomentFormatOptionBuilder, OptionBuilderBase, TextOptionBuilder} from './rule-builder';
+import RuleBuilder, {BooleanOptionBuilder, DropdownOptionBuilder, ExampleBuilder, MomentFormatOptionBuilder, OptionBuilderBase, TextOptionBuilder} from './rule-builder';
 import dedent from 'ts-dedent';
 import {formatYAML, initYAML} from '../utils/yaml';
 import {moment} from 'obsidian';
@@ -7,6 +7,10 @@ import {escapeDollarSigns} from '../utils/regex';
 import {insert} from '../utils/strings';
 import parseFormat from 'moment-parseformat';
 import {getTextInLanguage} from '../lang/helpers';
+import {AfterFileChangeLintTimes} from '../settings-data';
+
+type DateCreatedSourceOfTruth = 'file system' | 'frontmatter';
+type DateModifiedSourceOfTruth = 'file system' | 'user or Linter edits';
 
 class YamlTimestampOptions implements Options {
   @RuleBuilder.noSettingControl()
@@ -14,7 +18,8 @@ class YamlTimestampOptions implements Options {
 
   dateCreatedKey?: string = 'date created';
   dateCreated?: boolean = true;
-  forceRetentionOfCreatedValue?: boolean = false;
+  dateCreatedSourceOfTruth?: DateCreatedSourceOfTruth = 'file system';
+  dateModifiedSourceOfTruth?: DateModifiedSourceOfTruth = 'file system';
 
   @RuleBuilder.noSettingControl()
     fileCreatedTime?: string;
@@ -22,6 +27,12 @@ class YamlTimestampOptions implements Options {
   format?: string = 'dddd, MMMM Do YYYY, h:mm:ss a';
   dateModified?: boolean = true;
   dateModifiedKey?: string = 'date modified';
+
+  convertToUTC?: boolean = false;
+
+  // This is not used in the rule itself. It is used for running this rule as a standalone when
+  // editor content is updated.
+  timestampUpdateOnFileContentUpdated?: AfterFileChangeLintTimes =AfterFileChangeLintTimes.Never;
 
   @RuleBuilder.noSettingControl()
     fileModifiedTime?: string;
@@ -80,7 +91,7 @@ export default class YamlTimestamp extends RuleBuilder<YamlTimestampOptions> {
     const created_date = moment(options.fileCreatedTime);
     created_date.locale(options.locale);
 
-    const formatted_date = created_date.format(options.format);
+    const formatted_date = options.convertToUTC ? created_date.utc().format(options.format) : created_date.format(options.format);
     const created_date_line = `\n${options.dateCreatedKey}: ${formatted_date}`;
 
     const keyWithValueFound = created_match.test(text);
@@ -102,14 +113,17 @@ export default class YamlTimestamp extends RuleBuilder<YamlTimestampOptions> {
       textModified = true;
     } else if (keyWithValueFound) {
       const createdDateString = this.getYAMLTimestampString(text, created_match, options.dateCreatedKey);
-      if (options.forceRetentionOfCreatedValue) {
-        const yamlCreatedDateTime = this.parseValueToCurrentFormatIfPossible(createdDateString, options.format, options.locale);
+      const actualFormat = parseFormat(createdDateString);
+      if (options.dateCreatedSourceOfTruth == 'frontmatter' && options.format !== actualFormat) {
+        const yamlCreatedDateTime = this.parseValueToCurrentFormatIfPossible(createdDateString, options.format, options.locale, options.convertToUTC);
         if (yamlCreatedDateTime == null) {
           throw new Error(getTextInLanguage('logs.invalid-date-format-error').replace('{DATE}', createdDateString).replace('{FILE_NAME}', options.fileName));
         }
 
-        if (yamlCreatedDateTime.format(options.format) !== createdDateString) {
-          const created_date_yaml_line = `\n${options.dateCreatedKey}: ${yamlCreatedDateTime.format(options.format)}`;
+        const formattedYamlCreatedDate = options.convertToUTC ? yamlCreatedDateTime.utc().format(options.format) : yamlCreatedDateTime.format(options.format);
+
+        if (formattedYamlCreatedDate !== createdDateString) {
+          const created_date_yaml_line = `\n${options.dateCreatedKey}: ${formattedYamlCreatedDate}`;
           text = text.replace(
               created_match,
               escapeDollarSigns(created_date_yaml_line) + '\n',
@@ -117,7 +131,7 @@ export default class YamlTimestamp extends RuleBuilder<YamlTimestampOptions> {
 
           textModified = true;
         }
-      } else {
+      } else if (options.dateCreatedSourceOfTruth != 'frontmatter') {
         const createdDateTime = moment(createdDateString, options.format, options.locale, true);
         if (createdDateTime == undefined || !createdDateTime.isValid()) {
           text = text.replace(
@@ -142,14 +156,20 @@ export default class YamlTimestamp extends RuleBuilder<YamlTimestampOptions> {
     modified_date.locale(options.locale);
     // using the current time helps prevent issues where the previous modified time was greater
     // than 5 seconds prior to the time the linter will finish with the file (i.e. helps prevent accidental infinite loops on updating the date modified value)
-    const formatted_modified_date = options.currentTime.format(options.format);
+    const formatted_modified_date = options.convertToUTC ? options.currentTime.utc().format(options.format) : options.currentTime.format(options.format);
     const modified_date_line = `\n${options.dateModifiedKey}: ${formatted_modified_date}`;
 
     const keyWithValueFound = modified_match.test(text);
     if (keyWithValueFound) {
-      const modifiedDateTime = moment(text.match(modified_match)[0].replace(options.dateModifiedKey + ':', '').trim(), options.format, options.locale, true);
+      const modifiedDateTime = moment(this.getYAMLTimestampString(text, modified_match, options.dateModifiedKey), options.format, options.locale, true);
+      // conditions when update happens for date modified if the key already exists:
+      // 1. the text has been modified
+      // 2. the modified date in the frontmatter is not the same locale or format as the settings
+      // 3. the source of truth is not when a user or the Linter makes a change to the file and
+      // there is a more than 5 second difference between the date modified in the frontmatter and
+      // the filesystem
       if (textModified || modifiedDateTime == undefined || !modifiedDateTime.isValid() ||
-            this.getTimeDifferenceInSeconds(modifiedDateTime, modified_date, options) > 5
+            (options.dateModifiedSourceOfTruth != 'user or Linter edits' && this.getTimeDifferenceInSeconds(modifiedDateTime, modified_date, options) > 5)
       ) {
         text = text.replace(
             modified_match,
@@ -168,23 +188,23 @@ export default class YamlTimestamp extends RuleBuilder<YamlTimestampOptions> {
 
     return text;
   }
-  parseValueToCurrentFormatIfPossible(timestamp: string, format: string, locale: string): moment.Moment | null {
+  parseValueToCurrentFormatIfPossible(timestamp: string, format: string, locale: string, utc: boolean): moment.Moment | null {
     if (timestamp == undefined) {
       return null;
     }
 
-    const desiredFormatDate = moment(timestamp, format, locale, true);
+    const desiredFormatDate = utc ? moment.utc(timestamp, format, locale, true) : moment(timestamp, format, locale, true);
     if (desiredFormatDate != undefined && desiredFormatDate.isValid()) {
       return desiredFormatDate;
     }
 
-    // @ts-ignore
     const actualFormat = parseFormat(timestamp);
     if (actualFormat != undefined) {
-      const date = moment(timestamp, actualFormat);
+      const date = utc ? moment.utc(timestamp, actualFormat) : moment(timestamp, actualFormat);
       date.locale(locale);
 
-      return moment(date.format(format), format, locale, true);
+      const formattedDateStr = utc ? date.utc().format(format) : date.format(format);
+      return moment(formattedDateStr, format, locale, true);
     }
 
     return null;
@@ -282,6 +302,92 @@ export default class YamlTimestamp extends RuleBuilder<YamlTimestampOptions> {
           alreadyModified: false,
         },
       }),
+      new ExampleBuilder({
+        description: 'Header is set with convert to UTC option true',
+        before: dedent`
+          # H1
+        `,
+        after: dedent`
+          ---
+          date created: 2020-01-01T14:00:00+00:00
+          date modified: 2020-01-02T02:00:05+00:00
+          ---
+          # H1
+        `,
+        options: {
+          format: 'YYYY-MM-DDTHH:mm:ssZ',
+          fileCreatedTime: '2020-01-01T09:00:00-05:00', // 9 AM Eastern Standard Time
+          fileModifiedTime: '2020-01-01T21:00:00-05:00', // 9 PM Eastern Standard Time, same day
+          currentTime: moment('2020-01-01T21:00:05-05:00', 'YYYY-MM-DDTHH:mm:ssZ'), // 9:00:05 PM EST, same day
+          alreadyModified: false,
+          convertToUTC: true,
+        },
+      }),
+      new ExampleBuilder({
+        description: 'dateCreated option is false with convert to UTC option true',
+        before: dedent`
+          # H1
+        `,
+        after: dedent`
+          ---
+          date modified: 2020-01-02T02:00:05+00:00
+          ---
+          # H1
+        `,
+        options: {
+          format: 'YYYY-MM-DDTHH:mm:ssZ',
+          dateCreated: false,
+          fileCreatedTime: '2020-01-01T09:00:00-05:00', // 9 AM Eastern Standard Time
+          fileModifiedTime: '2020-01-01T21:00:00-05:00', // 9 PM Eastern Standard Time, same day
+          currentTime: moment('2020-01-01T21:00:05-05:00', 'YYYY-MM-DDTHH:mm:ssZ'), // 9:00:05 PM EST, same day
+          alreadyModified: false,
+          convertToUTC: true,
+        },
+      }),
+      new ExampleBuilder({
+        description: 'Date Created Key is set with convert to UTC option true',
+        before: dedent`
+          # H1
+        `,
+        after: dedent`
+          ---
+          created: 2020-01-01T14:00:00+00:00
+          ---
+          # H1
+        `,
+        options: {
+          format: 'YYYY-MM-DDTHH:mm:ssZ',
+          dateCreated: true,
+          dateModified: false,
+          dateCreatedKey: 'created',
+          fileCreatedTime: '2020-01-01T09:00:00-05:00', // 9 AM Eastern Standard Time
+          currentTime: moment('2020-01-01T21:00:05-05:00', 'YYYY-MM-DDTHH:mm:ssZ'), // 9:00:05 PM EST, same day
+          alreadyModified: false,
+          convertToUTC: true,
+        },
+      }),
+      new ExampleBuilder({
+        description: 'Date Modified Key is set with convert to UTC option true',
+        before: dedent`
+          # H1
+        `,
+        after: dedent`
+          ---
+          modified: 2020-01-02T02:00:05+00:00
+          ---
+          # H1
+        `,
+        options: {
+          format: 'YYYY-MM-DDTHH:mm:ssZ',
+          dateCreated: false,
+          dateModified: true,
+          dateModifiedKey: 'modified',
+          fileModifiedTime: '2020-01-01T21:00:00-05:00', // 9 PM Eastern Standard Time, same day
+          currentTime: moment('2020-01-01T21:00:05-05:00', 'YYYY-MM-DDTHH:mm:ssZ'), // 9:00:05 PM EST, same day
+          alreadyModified: false,
+          convertToUTC: true,
+        },
+      }),
     ];
   }
   get optionBuilders(): OptionBuilderBase<YamlTimestampOptions>[] {
@@ -298,11 +404,21 @@ export default class YamlTimestamp extends RuleBuilder<YamlTimestampOptions> {
         descriptionKey: 'rules.yaml-timestamp.date-created-key.description',
         optionsKey: 'dateCreatedKey',
       }),
-      new BooleanOptionBuilder({
+      new DropdownOptionBuilder<YamlTimestampOptions, DateCreatedSourceOfTruth>({
         OptionsClass: YamlTimestampOptions,
-        nameKey: 'rules.yaml-timestamp.force-retention-of-create-value.name',
-        descriptionKey: 'rules.yaml-timestamp.force-retention-of-create-value.description',
-        optionsKey: 'forceRetentionOfCreatedValue',
+        nameKey: 'rules.yaml-timestamp.date-created-source-of-truth.name',
+        descriptionKey: 'rules.yaml-timestamp.date-created-source-of-truth.description',
+        optionsKey: 'dateCreatedSourceOfTruth',
+        records: [
+          {
+            value: 'file system',
+            description: 'The file system date created value is used to set the value of date created in the frontmatter',
+          },
+          {
+            value: 'frontmatter',
+            description: 'When a value is present in the frontmatter for date created, this value is used as the value for the date created',
+          },
+        ],
       }),
       new BooleanOptionBuilder({
         OptionsClass: YamlTimestampOptions,
@@ -316,11 +432,65 @@ export default class YamlTimestamp extends RuleBuilder<YamlTimestampOptions> {
         descriptionKey: 'rules.yaml-timestamp.date-modified-key.description',
         optionsKey: 'dateModifiedKey',
       }),
+      new DropdownOptionBuilder<YamlTimestampOptions, DateModifiedSourceOfTruth>({
+        OptionsClass: YamlTimestampOptions,
+        nameKey: 'rules.yaml-timestamp.date-modified-source-of-truth.name',
+        descriptionKey: 'rules.yaml-timestamp.date-modified-source-of-truth.description',
+        optionsKey: 'dateModifiedSourceOfTruth',
+        records: [
+          {
+            value: 'file system',
+            description: 'The file system date modified value is used to set the value of date modified in the frontmatter',
+          },
+          {
+            value: 'user or Linter edits',
+            description: 'When a value is present in the frontmatter for date modified, date modified is kept as is unless the Linter makes a change to a note or the user edits a note with the setting `{NAME}` set to something other than `{NEVER}`.'.replace('{NAME}', getTextInLanguage('rules.yaml-timestamp.update-on-file-contents-updated.name')).replace('{NEVER}', getTextInLanguage('enums.never')),
+          },
+        ],
+      }),
       new MomentFormatOptionBuilder({
         OptionsClass: YamlTimestampOptions,
         nameKey: 'rules.yaml-timestamp.format.name',
         descriptionKey: 'rules.yaml-timestamp.format.description',
         optionsKey: 'format',
+      }),
+      new BooleanOptionBuilder({
+        OptionsClass: YamlTimestampOptions,
+        nameKey: 'rules.yaml-timestamp.convert-to-utc.name',
+        descriptionKey: 'rules.yaml-timestamp.convert-to-utc.description',
+        optionsKey: 'convertToUTC',
+      }),
+      new DropdownOptionBuilder<YamlTimestampOptions, AfterFileChangeLintTimes>({
+        OptionsClass: YamlTimestampOptions,
+        nameKey: 'rules.yaml-timestamp.update-on-file-contents-updated.name',
+        descriptionKey: 'rules.yaml-timestamp.update-on-file-contents-updated.description',
+        optionsKey: 'timestampUpdateOnFileContentUpdated',
+        records: [
+          {
+            value: AfterFileChangeLintTimes.Never,
+            description: AfterFileChangeLintTimes.Never,
+          },
+          {
+            value: AfterFileChangeLintTimes.After5Seconds,
+            description: AfterFileChangeLintTimes.After5Seconds,
+          },
+          {
+            value: AfterFileChangeLintTimes.After10Seconds,
+            description: AfterFileChangeLintTimes.After10Seconds,
+          },
+          {
+            value: AfterFileChangeLintTimes.After15Seconds,
+            description: AfterFileChangeLintTimes.After15Seconds,
+          },
+          {
+            value: AfterFileChangeLintTimes.After30Seconds,
+            description: AfterFileChangeLintTimes.After30Seconds,
+          },
+          {
+            value: AfterFileChangeLintTimes.After1Minute,
+            description: AfterFileChangeLintTimes.After1Minute,
+          },
+        ],
       }),
     ];
   }

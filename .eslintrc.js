@@ -12,11 +12,13 @@ module.exports = {
   'parserOptions': {
     'ecmaVersion': 12,
     'sourceType': 'module',
+    'project': ['./tsconfig.json', './packages/*/tsconfig.json'],
   },
   'plugins': [
     '@typescript-eslint',
     'jest',
     'unicorn',
+    "deprecation",
   ],
   'rules': {
     'camelcase': 'off',
@@ -29,11 +31,13 @@ module.exports = {
     'require-jsdoc': 'off',
     'unicorn/template-indent': 'error',
     'no-unused-vars': 'off',
+    '@typescript-eslint/no-floating-promises': 'error',
     '@typescript-eslint/no-unused-vars': [
       'error',
       {
         'argsIgnorePattern': '(^_)|(options)',
       },
     ],
+    "deprecation/deprecation": "warn",
   },
 };

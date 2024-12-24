@@ -1,22 +1,22 @@
-import {Setting, Component} from 'obsidian';
+import {App, Setting} from 'obsidian';
 import {getTextInLanguage} from 'src/lang/helpers';
 import {AddCustomRow} from '../components/add-custom-row';
-export type CustomReplace = {label: string, find: string, replace: string, flags: string};
+export type CustomReplace = {label: string, find: string, replace: string, flags: string, enabled: boolean};
 
 const defaultFlags = 'gm';
 
 export class CustomReplaceOption extends AddCustomRow {
-  constructor(containerEl: HTMLElement, parentComponent: Component, public regexes: CustomReplace[], saveSettings: () => void) {
+  constructor(containerEl: HTMLElement, public regexes: CustomReplace[], app: App, saveSettings: () => void) {
     super(
         containerEl,
-        parentComponent,
         getTextInLanguage('options.custom-replace.name'),
         getTextInLanguage('options.custom-replace.description'),
         getTextInLanguage('options.custom-replace.warning'),
         getTextInLanguage('options.custom-replace.add-input-button-text'),
+        app,
         saveSettings,
         ()=>{
-          const newRegex = {label: '', find: '', replace: '', flags: defaultFlags};
+          const newRegex = {label: '', find: '', replace: '', flags: defaultFlags, enabled: true};
           this.regexes.push(newRegex);
           this.saveSettings();
           this.addRegex(newRegex, this.regexes.length - 1, true);
@@ -101,12 +101,17 @@ export class CustomReplaceOption extends AddCustomRow {
             this.resetInputEls();
           });
     }).addExtraButton((cb)=>{
-      cb.setIcon('cross')
+      cb.setIcon('trash')
           .setTooltip(getTextInLanguage('options.custom-replace.delete-tooltip'))
           .onClick(()=>{
             this.regexes.splice(index, 1);
             this.saveSettings();
             this.resetInputEls();
+          });
+    }).addToggle((cb) => {
+      cb.setValue(regex.enabled)
+          .onChange((status: boolean) => {
+            regex.enabled = status;
           });
     });
 

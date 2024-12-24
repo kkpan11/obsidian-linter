@@ -2,9 +2,11 @@ import {visit} from 'unist-util-visit';
 import type {Position} from 'unist';
 import type {Root} from 'mdast';
 import {hashString53Bit, makeSureContentHasEmptyLinesAddedBeforeAndAfter, replaceTextBetweenStartAndEndWithNewValue, getStartOfLineIndex, replaceAt, getStartOfLineWhitespaceOrBlockquoteLevel} from './strings';
-import {genericLinkRegex, tableRow, tableSeparator, tableStartingPipe, customIgnoreAllStartIndicator, customIgnoreAllEndIndicator, checklistBoxStartsTextRegex, footnoteDefinitionIndicatorAtStartOfLine, emptyLineMathBlockquoteRegex, startsWithBlockquote} from './regex';
+import {genericLinkRegex, tableRow, tableSeparator, tableStartingPipe, customIgnoreAllStartIndicator, customIgnoreAllEndIndicator, checklistBoxStartsTextRegex, footnoteDefinitionIndicatorAtStartOfLine, emptyLineMathBlockquoteRegex, startsWithBlockquote, startsWithListMarkerRegex} from './regex';
 import {gfmFootnote} from 'micromark-extension-gfm-footnote';
 import {gfmTaskListItem} from 'micromark-extension-gfm-task-list-item';
+import {frontmatter} from 'micromark-extension-frontmatter';
+import {frontmatterFromMarkdown} from 'mdast-util-frontmatter';
 import {combineExtensions} from 'micromark-util-combine-extensions';
 import {math} from 'micromark-extension-math';
 import {mathFromMarkdown} from 'mdast-util-math';
@@ -16,6 +18,11 @@ import {countInstances} from './strings';
 import {getTextInLanguage} from '../lang/helpers';
 
 const LRU = new QuickLRU({maxSize: 200});
+
+type PositionPlusEmptyIndicator = {
+  position: Position,
+  isEmpty: boolean,
+}
 
 export enum MDAstTypes {
   Link = 'link',
@@ -39,6 +46,7 @@ export enum MDAstTypes {
 export enum OrderListItemStyles {
   Ascending = 'ascending',
   Lazy = 'lazy',
+  Preserve = 'preserve',
 }
 
 export enum OrderListItemEndOfIndicatorStyles {
@@ -53,6 +61,13 @@ export enum UnorderedListItemStyles {
   Consistent = 'consistent',
 }
 
+export enum LineBreakIndicators {
+  TwoSpaces = '  ',
+  LineBreakHtmlNotXml = '<br>',
+  LineBreakHtml = '<br/>',
+  Backslash = '\\',
+}
+
 function parseTextToAST(text: string): Root {
   const textHash = hashString53Bit(text);
   if (LRU.has(textHash)) {
@@ -61,10 +76,11 @@ function parseTextToAST(text: string): Root {
 
   // @ts-expect-error for some reason an overload is missing
   const ast = fromMarkdown(text, {
-    extensions: [combineExtensions([gfmFootnote(), gfmTaskListItem()]), math()],
+    extensions: [combineExtensions([gfmFootnote(), gfmTaskListItem(), frontmatter(['yaml'])]), math()],
     mdastExtensions: [[
       gfmFootnoteFromMarkdown(),
       gfmTaskListItemFromMarkdown,
+      frontmatterFromMarkdown(['yaml']),
     ],
     mathFromMarkdown(),
     ],
@@ -96,27 +112,40 @@ export function getPositions(type: MDAstTypes, text: string): Position[] {
 /**
  * Gets the positions of the list item text in the given text.
  * @param {string} text - The markdown text
- * @return {Position[]} The positions of the list item text in the given text
+ * @param {boolean} includeEmptyNodes - Whether or not empty list items should be
+ * returned to be handled by the calling function
+ * @return {PositionPlusEmptyIndicator[]} The positions of the list item text in the given text
+ * with a status as to whether or not they are empty
  */
-function getListItemTextPositions(text: string): Position[] {
+function getListItemTextPositions(text: string, includeEmptyNodes: boolean = false): Position[] {
   const ast = parseTextToAST(text);
-  const positions: Position[] = [];
+  const positions: PositionPlusEmptyIndicator[] = [];
   visit(ast, MDAstTypes.ListItem as string, (node) => {
     // @ts-ignore the fact that not all nodes have a children property since I am skipping any that do not
-    if (!node.children) {
+    if (!node.children || node.children.length === 0) {
+      if (includeEmptyNodes) {
+        positions.push({
+          position: node.position,
+          isEmpty: true,
+        });
+      }
+
       return;
     }
 
     // @ts-ignore the fact that not all nodes have a children property since I have already exited the function if that is the case
     for (const childNode of node.children) {
       if (childNode.type === (MDAstTypes.Paragraph as string)) {
-        positions.push(childNode.position);
+        positions.push({
+          position: childNode.position,
+          isEmpty: false,
+        });
       }
     }
   });
 
   // Sort positions by start position in reverse order
-  positions.sort((a, b) => b.start.offset - a.start.offset);
+  positions.sort((a, b) => b.position.start.offset - a.position.start.offset);
   return positions;
 }
 
@@ -360,9 +389,10 @@ export function makeEmphasisOrBoldConsistent(text: string, style: string, type: 
 /**
    * Makes sure that blockquotes, paragraphs, and list items have two spaces at the end of them if the following line continues its content.
    * @param {string} text The text to make sure that the two spaces are added to if there are consecutive lines of content
+   * @param {LineBreakIndicators} indicator The indicator to use for the lines that do not already use a blank line indicator
    * @return {string} The text with two spaces at the end of lines of paragraphs, list items, and blockquotes where there were consecutive lines of content.
    */
-export function addTwoSpacesAtEndOfLinesFollowedByAnotherLineOfTextContent(text: string): string {
+export function addTwoSpacesAtEndOfLinesFollowedByAnotherLineOfTextContent(text: string, indicator: LineBreakIndicators): string {
   const positions: Position[] = getPositions(MDAstTypes.Paragraph, text);
   if (positions.length === 0) {
     return text;
@@ -377,19 +407,60 @@ export function addTwoSpacesAtEndOfLinesFollowedByAnotherLineOfTextContent(text:
     }
 
     for (let i = 0; i < lastLineIndex; i++) {
-      const paragraphLine = paragraphLines[i].trimEnd();
+      const paragraphLine = paragraphLines[i];
 
-      // skip lines that end in <br> or <br/> as it is the same as two spaces in Markdown
-      if (paragraphLine.endsWith('<br>') || paragraphLine.endsWith('<br/>')) {
+      if (lineEndsInLineBreak(paragraphLine, indicator)) {
         continue;
       }
-      paragraphLines[i] = paragraphLine + '  ';
+      paragraphLines[i] = addOrReplaceLineEnding(paragraphLine, indicator);
     }
 
     text = replaceTextBetweenStartAndEndWithNewValue(text, position.start.offset, position.end.offset, paragraphLines.join('\n'));
   }
 
   return text;
+}
+
+function lineEndsInLineBreak(paragraphLine: string, indicator: LineBreakIndicators): boolean {
+  if (paragraphLine.endsWith('<br>') && indicator == LineBreakIndicators.LineBreakHtmlNotXml) {
+    return true;
+  }
+
+  if (paragraphLine.endsWith('<br/>') && indicator == LineBreakIndicators.LineBreakHtml) {
+    return true;
+  }
+
+  if (paragraphLine.endsWith('  ') && indicator == LineBreakIndicators.TwoSpaces) {
+    return true;
+  }
+
+  if (!paragraphLine.endsWith('\\\\') && paragraphLine.endsWith('\\') && indicator == LineBreakIndicators.Backslash) {
+    return true;
+  }
+
+  return false;
+}
+
+function addOrReplaceLineEnding(paragraphLine: string, indicator: LineBreakIndicators): string {
+  paragraphLine = paragraphLine.trimEnd();
+  let numCharsToRemove = 0;
+  if (paragraphLine.endsWith('<br>')) {
+    numCharsToRemove = 4;
+  }
+
+  if (paragraphLine.endsWith('<br/>')) {
+    numCharsToRemove = 5;
+  }
+
+  if (!paragraphLine.endsWith('\\\\') && paragraphLine.endsWith('\\')) {
+    numCharsToRemove = 1;
+  }
+
+  if (numCharsToRemove) {
+    paragraphLine = paragraphLine.substring(0, paragraphLine.length - numCharsToRemove);
+  }
+
+  return paragraphLine.trimEnd() + indicator;
 }
 
 /**
@@ -420,8 +491,7 @@ export function makeSureThereIsOnlyOneBlankLineBeforeAndAfterParagraphs(text: st
 
     // exclude list items, footnote definitions, and blockquotes
     const firstLine = paragraphLines[0].trimStart();
-    if (firstLine.startsWith('>') || firstLine.startsWith('- ') || firstLine.startsWith('-\t') ||
-      firstLine.match(/^[0-9]+\.( |\t)+/) || firstLine.match(footnoteDefinitionIndicatorAtStartOfLine)) {
+    if (firstLine.startsWith('>') || firstLine.match(startsWithListMarkerRegex) || firstLine.match(footnoteDefinitionIndicatorAtStartOfLine)) {
       continue;
     }
 
@@ -438,8 +508,8 @@ export function makeSureThereIsOnlyOneBlankLineBeforeAndAfterParagraphs(text: st
         newParagraphLines.push(paragraphLine);
       }
 
-      // make sure that lines that end in <br>, <br/>, or two or more spaces are in the same paragraph
-      nextLineIsSameParagraph = paragraphLine.endsWith('<br>') || paragraphLine.endsWith('<br/>') || paragraphLine.endsWith('  ');
+      // make sure that lines that end in \, <br>, <br/>, or two or more spaces are in the same paragraph
+      nextLineIsSameParagraph = paragraphLine.endsWith(LineBreakIndicators.LineBreakHtmlNotXml) || paragraphLine.endsWith(LineBreakIndicators.LineBreakHtml) || paragraphLine.endsWith(LineBreakIndicators.TwoSpaces) || (!paragraphLine.endsWith('\\\\') && paragraphLine.endsWith(LineBreakIndicators.Backslash));
     }
 
     // remove new lines prior to paragraph
@@ -535,29 +605,40 @@ export function updateBoldText(text: string, func:(text: string) => string): str
   return text;
 }
 
-export function updateListItemText(text: string, func:(text: string) => string): string {
-  const positions: Position[] = getListItemTextPositions(text);
+export function updateListItemText(text: string, func:(text: string) => string, includeEmptyNodes: boolean = false): string {
+  const positions: PositionPlusEmptyIndicator[] = getListItemTextPositions(text, includeEmptyNodes);
 
   for (const position of positions) {
-    let startIndex = position.start.offset;
-    // get the actual start of the list item leaving only 1 whitespace between the indicator and the text
-    while (startIndex > 0 && text.charAt(startIndex - 1).trim() === '') {
-      startIndex--;
-    }
-    // keep a single space for the indicator
-    if (startIndex === 0 || text.charAt(startIndex - 1).trim() != '') {
+    let startIndex = position.position.start.offset;
+    if (position.isEmpty) {
+      // get the actual start of the list item leaving only 1 whitespace between the indicator and the text
+      while (startIndex < position.position.end.offset && text.charAt(startIndex).trim() !== '') {
+        startIndex++;
+      }
+
       startIndex++;
+    } else {
+      // get the actual start of the list item leaving only 1 whitespace between the indicator and the text
+      while (startIndex > 0 && text.charAt(startIndex - 1).trim() === '') {
+        startIndex--;
+      }
+
+      // keep a single space for the indicator
+      if (startIndex === 0 || text.charAt(startIndex - 1).trim() != '') {
+        startIndex++;
+      }
     }
 
-    let listText = text.substring(startIndex, position.end.offset);
+    let listText = text.substring(startIndex, position.position.end.offset);
     // for some reason some checklists are not getting treated as such and this causes the task indicator to be included in the text
     if (checklistBoxStartsTextRegex.test(listText)) {
       startIndex += 4;
       listText = listText.substring(4);
     }
+
     listText = func(listText);
 
-    text = replaceTextBetweenStartAndEndWithNewValue(text, startIndex, position.end.offset, listText);
+    text = replaceTextBetweenStartAndEndWithNewValue(text, startIndex, position.position.end.offset, listText);
   }
 
   return text;
@@ -568,7 +649,7 @@ export function ensureEmptyLinesAroundFencedCodeBlocks(text: string): string {
 
   for (const position of positions) {
     const codeBlock = text.substring(position.start.offset, position.end.offset);
-    if (!codeBlock.startsWith('```')) {
+    if (!codeBlock.startsWith('```') && ! codeBlock.startsWith(`~~~`)) {
       continue;
     }
 
@@ -611,7 +692,15 @@ export function ensureEmptyLinesAroundBlockquotes(text: string): string {
   return text;
 }
 
-export function updateOrderedListItemIndicators(text: string, orderedListStyle: OrderListItemStyles, orderedListEndStyle: OrderListItemEndOfIndicatorStyles): string {
+export function ensureEmptyLinesAroundHorizontalRule(text: string): string {
+  const positions: Position[] = getPositions(MDAstTypes.HorizontalRule, text);
+  for (const position of positions) {
+    text = makeSureContentHasEmptyLinesAddedBeforeAndAfter(text, position.start.offset, position.end.offset);
+  }
+  return text;
+}
+
+export function updateOrderedListItemIndicators(text: string, orderedListStyle: OrderListItemStyles, orderedListEndStyle: OrderListItemEndOfIndicatorStyles, preserveStart: boolean): string {
   const positions: Position[] = getPositions(MDAstTypes.List, text);
   if (!positions) {
     return text;
@@ -645,8 +734,7 @@ export function updateOrderedListItemIndicators(text: string, orderedListStyle: 
 
     let lastItemListIndicatorLevel = -1;
     listText = listText.replace(/^(( |\t|> )*)((\d+(\.|\)))|[-*+])([^\n]*)$/gm, (listItem: string, $1: string = '', _$2: string, $3: string, _$4: string, _$5: string, $6: string) => {
-      let listItemIndicatorNumber = 1;
-
+      let listItemIndicatorNumber = (orderedListStyle === OrderListItemStyles.Preserve || preserveStart) ? Number(_$4) : 1;
       const listItemIndicatorLevel = getListItemLevel($1);
       // when dealing with a value that is not an int reset all values greater than or equal to the current list level
       if (!/^\d/.test($3)) {
@@ -660,9 +748,11 @@ export function updateOrderedListItemIndicators(text: string, orderedListStyle: 
         if (orderedListStyle === OrderListItemStyles.Ascending) {
           listItemIndicatorNumber = preListIndicatorLevelsToIndicatorNumber.get(listItemIndicatorLevel) + 1;
           preListIndicatorLevelsToIndicatorNumber.set(listItemIndicatorLevel, listItemIndicatorNumber);
+        } else if (preserveStart) {
+          listItemIndicatorNumber = preListIndicatorLevelsToIndicatorNumber.get(listItemIndicatorLevel);
         }
       } else {
-        preListIndicatorLevelsToIndicatorNumber.set(listItemIndicatorLevel, 1);
+        preListIndicatorLevelsToIndicatorNumber.set(listItemIndicatorLevel, listItemIndicatorNumber);
       }
 
       // if we have removed an indentation level then go ahead and remove the last set of sublist info for any levels between those two levels
@@ -938,6 +1028,17 @@ export function getAllTablesInText(text: string): {startIndex: number, endIndex:
     if (countTableDelimiters(firstLine) !== countTableDelimiters(delimiterLine)) {
       continue;
     }
+
+    // need to check that two lines before the separator line does not start and end with a pipe
+    if (startOfPreviousLine !== 0) {
+      const startOfTwoLinesPrior = getStartOfLineIndex(text, startOfPreviousLine - 1);
+      const twoLinesPrior = text.substring(startOfTwoLinesPrior, startOfPreviousLine - 1);
+      if (twoLinesPrior.startsWith('|') || twoLinesPrior.endsWith('|')) {
+        // the match is at best a row in a table
+        continue;
+      }
+    }
+
 
     let end = match.index + match[0].length;
 

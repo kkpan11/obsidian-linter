@@ -164,7 +164,7 @@ export default {
   'options': {
     'custom-command': {
       'name': 'Comandos personalizados',
-      'description': 'Los comandos personalizados son comandos de Obsidian que se ejecutan después de que Linter termina de ejecutar sus reglas regulares. Esto significa que no se ejecutan antes de que se ejecute la lógica de marca de tiempo YAML, por lo que pueden hacer que la marca de tiempo de YAML se active en la siguiente ejecución del Linter. Solo puede seleccionar un comando de Obsidian una vez. **_Note que esto actualmente solo funciona para analizar el archivo actual._**',
+      'description': 'Los comandos personalizados son comandos de Obsidian que se ejecutan después de que Linter termina de ejecutar sus reglas regulares. Esto significa que no se ejecutan antes de que se ejecute la lógica de marca de tiempo YAML, por lo que pueden hacer que la marca de tiempo de YAML se active en la siguiente ejecución del Linter. Solo puede seleccionar un comando de Obsidian una vez.',
       'warning': 'Al seleccionar una opción, asegúrese de seleccionar la opción usando el ratón o presionando la clave Intro. Es posible que otros métodos de selección no funcionen y solo se guardarán las selecciones de un comando de Obsidian real o una cadena vacía.',
       'add-input-button-text': 'Agregar nuevo comando',
       'command-search-placeholder-text': 'Comando de Obsidian',
@@ -189,7 +189,7 @@ export default {
   'rules': {
     'auto-correct-common-misspellings': {
       'name': 'Corrección automática de errores ortográficos comunes',
-      'description': 'Utiliza un diccionario de errores ortográficos comunes para convertirlos automáticamente a su ortografía correcta. Consulte [mapa de autocorrección](https://github.com/platers/obsidian-linter/tree/master/src/utils/auto-correct-misspellings.ts) para obtener la lista completa de palabras corregidas automáticamente.',
+      'description': 'Utiliza un diccionario de errores ortográficos comunes para convertirlos automáticamente a su ortografía correcta. Consulte <a href="https://github.com/platers/obsidian-linter/tree/master/src/utils/default-misspellings.md">mapa de autocorrección</a> para obtener la lista completa de palabras corregidas automáticamente. <b>Nota: esta lista puede funcionar en texto de varios idiomas, pero esta lista es la misma sin importar qué idioma esté en uso actualmente.</b>',
       'ignore-words': {
         'name': 'Ignorar palabras',
         'description': 'Una lista separada por comas de palabras en minúsculas para ignorar al corregir automáticamente',
@@ -344,7 +344,7 @@ export default {
       'description': 'Todos los encabezados tienen una línea en blanco antes y después (excepto cuando el encabezado está al principio o al final del documento).',
       'bottom': {
         'name': 'Abajo',
-        'description': 'Insertar una línea en blanco después de los encabezados',
+        'description': 'Asegura una línea en blanco después de los encabezados',
       },
       'empty-line-after-yaml': {
         'name': 'Línea vacía entre el YAML y el encabezado',
@@ -525,7 +525,7 @@ export default {
     },
     'remove-trailing-punctuation-in-heading': {
       'name': 'Eliminar la puntuación final en el encabezado',
-      'description': 'Elimina la puntuación especificada al final de los encabezados, asegurándose de ignorar el punto y coma al final de [referencias de entidades de HTML](https://es.wikipedia.org/wiki/Anexo:Referencias_a_entidades_de_caracteres_XML_y_HTML).',
+      'description': 'Elimina la puntuación especificada al final de los encabezados, asegurándose de ignorar el punto y coma al final de <a href="https://es.wikipedia.org/wiki/Anexo:Referencias_a_entidades_de_caracteres_XML_y_HTML">referencias de entidades de HTML</a>.',
       'punctuation-to-remove': {
         'name': 'Puntuación final',
         'description': 'La puntuación final que se eliminará de los encabezados del archivo.',
@@ -545,7 +545,7 @@ export default {
     },
     'space-between-chinese-japanese-or-korean-and-english-or-numbers': {
       'name': 'Espacio entre chino japonés o coreano e inglés o números',
-      'description': 'Garantiza que el chino, el japonés o el coreano y el inglés o los números estén separados por un solo espacio. Sigue estas [directrices](https://github.com/sparanoid/chinese-copywriting-guidelines)',
+      'description': 'Garantiza que el chino, el japonés o el coreano y el inglés o los números estén separados por un solo espacio. Sigue estas <a href="https://github.com/sparanoid/chinese-copywriting-guidelines">directrices</a>',
     },
     'strong-style': {
       'name': 'Estilo fuerte',
@@ -565,7 +565,11 @@ export default {
     },
     'two-spaces-between-lines-with-content': {
       'name': 'Dos espacios entre líneas con contenido',
-      'description': 'Se asegura de que se agreguen dos espacios al final de las líneas con contenido que continúa en la siguiente línea para párrafos, comillas y elementos de lista',
+      'description': 'Se asegura de que el salto de línea especificado se agregue al final de las líneas y el contenido continúe en la línea siguiente para párrafos, citas en bloque y elementos de lista.',
+      'line-break-indicator': {
+        'name': 'Indicador de salto de línea',
+        'description': 'El indicador de salto de línea a utilizar.',
+      },
     },
     'unordered-list-style': {
       'name': 'Estilo de lista desordenada',
@@ -602,10 +606,6 @@ export default {
         'name': 'Clave de fecha de creación',
         'description': 'La clave de YAML para usar para la fecha de creación',
       },
-      'force-retention-of-create-value': {
-        'name': 'Forzar la fecha de creación de la retención del valor clave',
-        'description': 'Reutiliza el valor en el frontmatter del YAML para la fecha de creación en lugar de los metadatos del archivo, lo que es útil para evitar que los cambios en los metadatos del archivo provoquen que el valor cambie a un valor diferente.',
-      },
       'date-modified': {
         'name': 'Fecha modificada',
         'description': 'Inserte la fecha en que se modificó el archivo por última vez',
@@ -621,7 +621,7 @@ export default {
     },
     'yaml-title-alias': {
       'name': 'Alias de título de YAML',
-      'description': 'Inserta el título del archivo en la sección de alias de YAML frontmatter. Obtiene el título del primer H1 o nombre de archivo.',
+      'description': 'Inserta o actualiza el título del archivo en la sección de alias de YAML frontmatter. Obtiene el título del primer H1 o nombre de archivo.',
       'preserve-existing-alias-section-style': {
         'name': 'Conservar el estilo de sección de alias existente',
         'description': 'Si se establece, la configuración `Estilo de sección de alias de YAML` se aplica solo a las secciones recién creadas',
@@ -631,8 +631,12 @@ export default {
         'description': 'Estos alias suelen ser redundantes.',
       },
       'use-yaml-key-to-keep-track-of-old-filename-or-heading': {
-        'name': 'Use la clave de YAML `linter-yaml-title-alias` para ayudar con los cambios de nombre de archivo y encabezado',
+        'name': 'Use la clave de YAML especificado por `Clave auxiliar de alias` para ayudar con los cambios de nombre de archivo y encabezado',
         'description': 'Si se establece, cuando cambia el primer encabezado H1 o cambia el nombre de archivo si el primer H1 no está presente, el alias anterior almacenado en esta clave se reemplazará con el nuevo valor en lugar de simplemente insertar una nueva entrada en la matriz de alias.',
+      },
+      'alias-helper-key': {
+        'name': 'Clave auxiliar de alias',
+        'description': 'La clave que se debe utilizar para ayudar a realizar un seguimiento de cuál fue el último nombre de archivo o encabezado que esta regla almacenó en el frontmatter.',
       },
     },
     'yaml-title': {
@@ -690,5 +694,10 @@ export default {
     '‘’': '‘’', // leave as is
     '""': '""', // leave as is
     '“”': '“”', // leave as is
+    // yaml.ts
+    '\\': '\\', // leave as is
+    '<br>': '<br>', // leave as is
+    '  ': '  ', // leave as is
+    '<br/>': '<br/>', // leave as is
   },
 };

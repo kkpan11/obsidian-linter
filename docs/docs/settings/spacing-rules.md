@@ -172,7 +172,7 @@ After:
 
 Alias: `empty-line-around-blockquotes`
 
-Ensures that there is an empty line around blockquotes unless they start or end a document. **Note: an empty line is either one less level of nesting for blockquotes or a newline character.**
+Ensures that there is an empty line around blockquotes unless they start or end a document. <b>Note: an empty line is either one less level of nesting for blockquotes or a newline character.</b>
 
 
 
@@ -386,11 +386,133 @@ var text = 'some string';
 ``````
 </details>
 
+## Empty Line Around Horizontal Rules
+
+Alias: `empty-line-around-horizontal-rules`
+
+Ensures that there is an empty line around horizontal rules unless they start or end a document.
+
+
+
+
+
+### Examples
+
+<details><summary>Horizontal rules that start a document do not get an empty line before them.</summary>
+
+Before:
+
+`````` markdown
+***
+
+
+Content
+``````
+
+After:
+
+`````` markdown
+***
+
+Content
+``````
+</details>
+<details><summary>Horizontal rules that end a document do not get an empty line after them.</summary>
+
+Before:
+
+`````` markdown
+***
+Content
+***
+``````
+
+After:
+
+`````` markdown
+***
+
+Content
+
+***
+``````
+</details>
+<details><summary>All types of horizontal rules are affected by this rule</summary>
+
+Before:
+
+`````` markdown
+- Content 1
+***
+- Content 2
+---
+- Content 3
+___
+- Content 4
+``````
+
+After:
+
+`````` markdown
+- Content 1
+
+***
+
+- Content 2
+
+---
+
+- Content 3
+
+___
+
+- Content 4
+``````
+</details>
+<details><summary>YAML frontmatter is not affected by this rule</summary>
+
+Before:
+
+`````` markdown
+---
+prop: value
+---
+
+Content
+``````
+
+After:
+
+`````` markdown
+---
+prop: value
+---
+
+Content
+``````
+</details>
+<details><summary>Paragraphs above `---` are treated as a heading and not spaced apart</summary>
+
+Before:
+
+`````` markdown
+Content
+---
+``````
+
+After:
+
+`````` markdown
+Content
+---
+``````
+</details>
+
 ## Empty Line Around Math Blocks
 
 Alias: `empty-line-around-math-blocks`
 
-Ensures that there is an empty line around math blocks using `Number of Dollar Signs to Indicate a Math Block` to determine how many dollar signs indicates a math block for single-line math.
+Ensures that there is an empty line around math blocks using <code>Number of Dollar Signs to Indicate a Math Block</code> to determine how many dollar signs indicates a math block for single-line math.
 
 
 
@@ -677,15 +799,24 @@ More content here
 
 Alias: `heading-blank-lines`
 
-All headings have a blank line both before and after (except where the heading is at the beginning or end of the document).
+All headings have one blank line both before and after (except where the heading is at the beginning or end of the document).
 
 ### Options
 
 | Name | Description | List Items | Default Value |
 | ---- | ----------- | ---------- | ------------- |
-| `Bottom` | Insert a blank line after headings | N/A | `true` |
+| `Bottom` | Ensures one blank line after headings | N/A | `true` |
 | `Empty Line Between YAML and Header` | Keep the empty line between the YAML frontmatter and header | N/A | `true` |
 
+### Additional Info
+
+
+!!! Warning
+    If [paragraph blank lines](#paragraph-blank-lines) is on, a newline will still be added between a heading and a paragraph, even if `Bottom` is `false`. You can override this by adding a [custom regex replacement rule](./custom-rules.md#custom-regex-replacement) with the following settings:
+    
+    | regex to find  | flags | regex to replace |
+    |:-------------  |:----- |:---------------- |
+    | `(^#+\s.*)\n+` | `gm`  | `$1\n`           |
 
 
 ### Examples
@@ -771,7 +902,7 @@ Paragraph here...
 
 Alias: `line-break-at-document-end`
 
-Ensures that there is exactly one line break at the end of a document.
+Ensures that there is exactly one line break at the end of a document if the note is not empty.
 
 
 
@@ -812,12 +943,26 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
 
 ``````
 </details>
+<details><summary>Empty files will not have a blank line added</summary>
+
+Before:
+
+`````` markdown
+
+``````
+
+After:
+
+`````` markdown
+
+``````
+</details>
 
 ## Move Math Block Indicators to Their Own Line
 
 Alias: `move-math-block-indicators-to-their-own-line`
 
-Move all starting and ending math block indicators to their own lines using `Number of Dollar Signs to Indicate a Math Block` to determine how many dollar signs indicates a math block for single-line math.
+Move all starting and ending math block indicators to their own lines using <code>Number of Dollar Signs to Indicate a Math Block</code> to determine how many dollar signs indicates a math block for single-line math.
 
 
 
@@ -902,7 +1047,7 @@ All paragraphs should have exactly one blank line both before and after.
 
 #### When Is a Blank Line Added?
 
-When a paragraph has another line after the current one and it does not end in 2 or more spaces or `<br>` or `<br/>`.
+When a paragraph has another line after the current one and it does not end in 2 or more spaces, `<br>`, `<br/>`, or `\`.
 
 
 ### Examples
@@ -927,7 +1072,7 @@ Newlines are inserted.
 A paragraph is a line that starts with a letter.
 ``````
 </details>
-<details><summary>Paragraphs can be extended via the use of 2 or more spaces at the end of a line or line break html</summary>
+<details><summary>Paragraphs can be extended via the use of 2 or more spaces at the end of a line, a line break html or xml, or a backslash (\)</summary>
 
 Before:
 
@@ -936,6 +1081,7 @@ Before:
 Content  
 Paragraph content continued <br>
 Paragraph content continued once more <br/>
+Paragraph content yet again\
 Last line of paragraph
 A new paragraph
 # H2
@@ -949,6 +1095,7 @@ After:
 Content  
 Paragraph content continued <br>
 Paragraph content continued once more <br/>
+Paragraph content yet again\
 Last line of paragraph
 
 A new paragraph
@@ -1195,7 +1342,7 @@ After:
 
 Alias: `remove-space-around-characters`
 
-Ensures that certain characters are not surrounded by whitespace (either single spaces or a tab). **Note: this may causes issues with markdown format in some cases.**
+Ensures that certain characters are not surrounded by whitespace (either single spaces or a tab). <b>Note: this may causes issues with markdown format in some cases.</b>
 
 ### Options
 
@@ -1297,14 +1444,14 @@ After:
 
 Alias: `remove-space-before-or-after-characters`
 
-Removes space before the specified characters and after the specified characters. **Note: this may causes issues with markdown format in some cases.**
+Removes space before the specified characters and after the specified characters. <b>Note: this may causes issues with markdown format in some cases.</b>
 
 ### Options
 
 | Name | Description | List Items | Default Value |
 | ---- | ----------- | ---------- | ------------- |
-| `Remove Space Before Characters` | Removes space before the specified characters. **Note: using `{` or `}` in the list of characters will unexpectedly affect files as it is used in the ignore syntax behind the scenes.** | N/A | `,!?;:).’”]` |
-| `Remove Space After Characters` | Removes space after the specified characters. **Note: using `{` or `}` in the list of characters will unexpectedly affect files as it is used in the ignore syntax behind the scenes.** | N/A | `¿¡‘“([` |
+| `Remove Space Before Characters` | Removes space before the specified characters. <b>Note: using <code>{</code> or <code>}</code> in the list of characters will unexpectedly affect files as it is used in the ignore syntax behind the scenes.</b> | N/A | `,!?;:).’”]` |
+| `Remove Space After Characters` | Removes space after the specified characters. <b>>Note: using <code>{</code> or <code>}</code> in the list of characters will unexpectedly affect files as it is used in the ignore syntax behind the scenes.</b> | N/A | `¿¡‘“([` |
 
 
 
@@ -1380,9 +1527,14 @@ After:
 
 Alias: `space-between-chinese-japanese-or-korean-and-english-or-numbers`
 
-Ensures that Chinese, Japanese, or Korean and English or numbers are separated by a single space. Follows these [guidelines](https://github.com/sparanoid/chinese-copywriting-guidelines)
+Ensures that Chinese, Japanese, or Korean and English or numbers are separated by a single space. Follows these <a href="https://github.com/sparanoid/chinese-copywriting-guidelines">guidelines</a>
 
+### Options
 
+| Name | Description | List Items | Default Value |
+| ---- | ----------- | ---------- | ------------- |
+| `English Punctuations and Symbols Before CJK` | The list of non-letter punctuation and symbols to consider to be from English when found before Chinese, Japanese, or Korean characters. <b>Note: "*" is always considered to be English and is necessary for handling some markdown syntaxes properly.</b> | N/A | `-+;:'"°%$)]` |
+| `English Punctuations and Symbols After CJK` | The list of non-letter punctuation and symbols to consider to be from English when found after Chinese, Japanese, or Korean characters. <b>Note: "*" is always considered to be English and is necessary for handling some markdown syntaxes properly.</b> | N/A | `-+'"([¥$` |
 
 
 

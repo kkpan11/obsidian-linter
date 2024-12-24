@@ -13,6 +13,9 @@ const config: Config.InitialOptions = {
     '**/?(*.)+(spec|test).[jt]s?(x)',
     '!**/__tests__/common.ts',
     '!**/__integration__/*.[jt]s?(x)',
+    '!**/test-vault/**/*.[jt]s?(x)',
   ],
+  // try to fix memory issues with jest when the UTs run
+  workerIdleMemoryLimit: '200MB',
 };
 export default config;

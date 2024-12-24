@@ -2,7 +2,7 @@ import log from 'loglevel';
 import LinterPlugin from 'src/main';
 import {Tab} from './tab';
 import {TextBoxFull} from 'src/ui/components/text-box-full';
-import {parseTextToHTMLWithoutOuterParagraph} from 'src/ui/helpers';
+import {setElContent} from 'src/ui/helpers';
 import {logsFromLastRun, setLogLevel} from 'src/utils/logger';
 import {getTextInLanguage} from 'src/lang/helpers';
 import {DropdownRecordInfo, DropdownSetting} from 'src/ui/components/dropdown-setting';
@@ -36,16 +36,27 @@ export class DebugTab extends Tab {
 
     this.addSettingSearchInfo(tempDiv, settingName, settingDesc);
 
+    let logDisplay: TextBoxFull = null;
     tempDiv = this.contentEl.createDiv();
-    this.addSettingSearchInfoForGeneralSettings(new ToggleSetting(tempDiv, 'tabs.debug.log-collection.name', 'tabs.debug.log-collection.description', 'recordLintOnSaveLogs', this.plugin));
+    const recordLintOnSaveLogsSetting = new ToggleSetting(tempDiv, 'tabs.debug.log-collection.name', 'tabs.debug.log-collection.description', 'recordLintOnSaveLogs', this.plugin, (value: boolean) => {
+      if (value) {
+        logDisplay.unhide();
+      } else {
+        logDisplay.hide();
+      }
+    });
+    this.addSettingSearchInfoForGeneralSettings(recordLintOnSaveLogsSetting);
 
     tempDiv = this.contentEl.createDiv();
     settingName = getTextInLanguage('tabs.debug.linter-logs.name');
     settingDesc = getTextInLanguage('tabs.debug.linter-logs.description');
-    const logDisplay = new TextBoxFull(tempDiv, settingName, '');
+    logDisplay = new TextBoxFull(tempDiv, settingName, '');
     logDisplay.inputEl.setText(logsFromLastRun.join('\n'));
+    setElContent(settingDesc, logDisplay.descEl);
 
-    parseTextToHTMLWithoutOuterParagraph(settingDesc, logDisplay.descEl, this.plugin.settingsTab.component);
+    if (!recordLintOnSaveLogsSetting.getBoolean()) {
+      logDisplay.hide();
+    }
 
     this.addSettingSearchInfo(tempDiv, settingName, settingDesc);
   }

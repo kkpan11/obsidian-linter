@@ -34,7 +34,7 @@ ruleTest({
       before: dedent`
         >   Text here
         >     >           More Text Here
-        > \t > \t\t\t >Some More Text
+        > \t > \t >Some More Text
         >>>>\tJust a Tab
       `,
       after: dedent`
@@ -80,8 +80,8 @@ ruleTest({
         >   2) Ordered item 2
         >   - [ ] Checklist item
         >- List item 4
-        > >  >   \t > - List item 5
-        > >  >   \t > > - List item 6
+        > >  > \t > - List item 5
+        > >  > \t > > - List item 6
       `,
       after: dedent`
         >Text here
@@ -96,6 +96,86 @@ ruleTest({
         >>>>> - List item 6
       `,
       options: {style: 'no space'},
+    },
+    { // accounts for https://github.com/platers/obsidian-linter/issues/1055
+      testName: 'Code blocks in a blockquote should not have their spacing affected since that can remove indentation for code',
+      before: dedent`
+        > Example blockquote
+        >Wrongly indented line
+        >
+        >\`\`\`javascript
+        > function greet() {
+        >     console.log("Hello mom!")
+        > }
+        > \`\`\`
+      `,
+      after: dedent`
+        > Example blockquote
+        > Wrongly indented line
+        > ${''}
+        >\`\`\`javascript
+        > function greet() {
+        >     console.log("Hello mom!")
+        > }
+        > \`\`\`
+      `,
+      options: {style: 'space'},
+    },
+    { // accounts for https://github.com/platers/obsidian-linter/issues/1087
+      testName: 'Math blocks in a blockquote should not have their spacing affected since that can remove indentation for lists',
+      before: dedent`
+        >[!INFO] Linter sublist latex repro
+        > text
+        > - list item 1
+        >     $$
+        >     f = ma
+        >     $$
+        >     - sublist item 1
+        >         $$
+        >         y = ax + b
+        >         $$
+      `,
+      after: dedent`
+        > [!INFO] Linter sublist latex repro
+        > text
+        > - list item 1
+        >     $$
+        >     f = ma
+        >     $$
+        >     - sublist item 1
+        >         $$
+        >         y = ax + b
+        >         $$
+      `,
+      options: {style: 'space'},
+    },
+    { // accounts for https://github.com/platers/obsidian-linter/issues/1087
+      testName: 'Code blocks in a blockquote should not have their spacing affected since that can remove indentation for lists',
+      before: dedent`
+        >[!INFO] Linter sublist code repro
+        > text
+        > - list item 1
+        >     \`\`\`
+        >     f = ma
+        >     \`\`\`
+        >     - sublist item 1
+        >         \`\`\`
+        >         y = ax + b
+        >         \`\`\`
+      `,
+      after: dedent`
+        > [!INFO] Linter sublist code repro
+        > text
+        > - list item 1
+        >     \`\`\`
+        >     f = ma
+        >     \`\`\`
+        >     - sublist item 1
+        >         \`\`\`
+        >         y = ax + b
+        >         \`\`\`
+      `,
+      options: {style: 'space'},
     },
   ],
 });

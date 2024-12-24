@@ -8,6 +8,7 @@ import {DropdownRecordInfo, DropdownSetting} from 'src/ui/components/dropdown-se
 import {NumberInputSetting} from 'src/ui/components/number-input-setting';
 import {ToggleSetting} from 'src/ui/components/toggle-setting';
 import {FolderIgnoreOption} from '../folder-ignore-option';
+import {FilesToIgnoreOption} from '../files-to-ignore-option';
 
 export class GeneralTab extends Tab {
   constructor(navEl: HTMLElement, settingsEl: HTMLElement, isMobile: boolean, plugin: LinterPlugin, private app: App) {
@@ -17,16 +18,41 @@ export class GeneralTab extends Tab {
 
   display(): void {
     let tempDiv = this.contentEl.createDiv();
-    this.addSettingSearchInfoForGeneralSettings(new ToggleSetting(tempDiv, 'tabs.general.lint-on-save.name', 'tabs.general.lint-on-save.description', 'lintOnSave', this.plugin));
+
+    let displayCharactersChangedSetting: ToggleSetting = null;
+    const lintOnSaveSetting = new ToggleSetting(tempDiv, 'tabs.general.lint-on-save.name', 'tabs.general.lint-on-save.description', 'lintOnSave', this.plugin, (value: boolean) => {
+      if (value) {
+        displayCharactersChangedSetting.unhide();
+      } else {
+        displayCharactersChangedSetting.hide();
+      }
+    });
+    this.addSettingSearchInfoForGeneralSettings(lintOnSaveSetting);
 
     tempDiv = this.contentEl.createDiv();
-    this.addSettingSearchInfoForGeneralSettings(new ToggleSetting(tempDiv, 'tabs.general.display-message.name', 'tabs.general.display-message.description', 'displayChanged', this.plugin));
+    displayCharactersChangedSetting = new ToggleSetting(tempDiv, 'tabs.general.display-message.name', 'tabs.general.display-message.description', 'displayChanged', this.plugin);
+    this.addSettingSearchInfoForGeneralSettings(displayCharactersChangedSetting);
+    if (!lintOnSaveSetting.getBoolean()) {
+      displayCharactersChangedSetting.hide();
+    }
+
+    let displayLintOnActiveFileChangeSetting: ToggleSetting = null;
+    tempDiv = this.contentEl.createDiv();
+    const lintOnActiveFileChangeSetting = new ToggleSetting(tempDiv, 'tabs.general.lint-on-file-change.name', 'tabs.general.lint-on-file-change.description', 'lintOnFileChange', this.plugin, (value: boolean) => {
+      if (value) {
+        displayLintOnActiveFileChangeSetting.unhide();
+      } else {
+        displayLintOnActiveFileChangeSetting.hide();
+      }
+    });
+    this.addSettingSearchInfoForGeneralSettings(lintOnActiveFileChangeSetting);
 
     tempDiv = this.contentEl.createDiv();
-    this.addSettingSearchInfoForGeneralSettings(new ToggleSetting(tempDiv, 'tabs.general.lint-on-file-change.name', 'tabs.general.lint-on-file-change.description', 'lintOnFileChange', this.plugin));
-
-    tempDiv = this.contentEl.createDiv();
-    this.addSettingSearchInfoForGeneralSettings(new ToggleSetting(tempDiv, 'tabs.general.display-lint-on-file-change-message.name', 'tabs.general.display-lint-on-file-change-message.description', 'displayLintOnFileChangeNotice', this.plugin));
+    displayLintOnActiveFileChangeSetting = new ToggleSetting(tempDiv, 'tabs.general.display-lint-on-file-change-message.name', 'tabs.general.display-lint-on-file-change-message.description', 'displayLintOnFileChangeNotice', this.plugin);
+    this.addSettingSearchInfoForGeneralSettings(displayLintOnActiveFileChangeSetting);
+    if (!lintOnActiveFileChangeSetting.getBoolean()) {
+      displayLintOnActiveFileChangeSetting.hide();
+    }
 
     const sysLocale = navigator.language?.toLowerCase();
     const localeValues = ['system-default'];
@@ -96,9 +122,17 @@ export class GeneralTab extends Tab {
     this.addSettingSearchInfoForGeneralSettings(new NumberInputSetting(tempDiv, 'tabs.general.number-of-dollar-signs-to-indicate-math-block.name', 'tabs.general.number-of-dollar-signs-to-indicate-math-block.description', 'commonStyles.minimumNumberOfDollarSignsToBeAMathBlock', this.plugin));
 
     const folderIgnoreEl = this.contentEl.createDiv();
-    const folderIgnore = new FolderIgnoreOption(folderIgnoreEl, this.plugin.settingsTab.component, this.plugin.settings.foldersToIgnore, this.app, () => {
-      this.plugin.saveSettings();
+    const folderIgnore = new FolderIgnoreOption(folderIgnoreEl, this.plugin.settings.foldersToIgnore, this.app, () => {
+      void this.plugin.saveSettings();
     });
+
     this.addSettingSearchInfo(folderIgnoreEl, folderIgnore.name, folderIgnore.description.replaceAll('\n', ' '));
+
+    const filesToIgnoreEl = this.contentEl.createDiv();
+    const filesToIgnore = new FilesToIgnoreOption(filesToIgnoreEl, this.plugin.settings.filesToIgnore, this.app, () => {
+      void this.plugin.saveSettings();
+    });
+
+    this.addSettingSearchInfo(filesToIgnoreEl, filesToIgnore.name, filesToIgnore.description.replaceAll('\n', ' '));
   }
 }

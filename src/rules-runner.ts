@@ -21,24 +21,33 @@ import {LintCommand} from './ui/linter-components/custom-command-option';
 import {convertStringVersionOfEscapeCharactersToEscapeCharacters} from './utils/strings';
 import {getTextInLanguage} from './lang/helpers';
 import CapitalizeHeadings from './rules/capitalize-headings';
+import YamlTitle from './rules/yaml-title';
+import YamlTitleAlias from './rules/yaml-title-alias';
 import BlockquoteStyle from './rules/blockquote-style';
 import {IgnoreTypes, ignoreListOfTypes} from './utils/ignore-types';
 import MoveMathBlockIndicatorsToOwnLine from './rules/move-math-block-indicators-to-own-line';
 import {LinterSettings} from './settings-data';
 import TrailingSpaces from './rules/trailing-spaces';
+import {CustomAutoCorrectContent} from './ui/linter-components/auto-correct-files-picker-option';
+import AutoCorrectCommonMisspellings from './rules/auto-correct-common-misspellings';
+import {yamlRegex} from './utils/regex';
+import AddBlankLineAfterYAML from './rules/add-blank-line-after-yaml';
+import ConsecutiveBlankLines from './rules/consecutive-blank-lines';
 
 export type RunLinterRulesOptions = {
   oldText: string,
   fileInfo: FileInfo,
   settings: LinterSettings,
   momentLocale: string,
-  getCurrentTime: () => moment.Moment
+  getCurrentTime: () => moment.Moment,
+  defaultMisspellings: Map<string, string>,
 }
 
 type FileInfo = {
   name: string,
   createdAtFormatted: string,
   modifiedAtFormatted: string,
+  path: string,
 }
 
 export class RulesRunner {
@@ -60,6 +69,14 @@ export class RulesRunner {
     let newText = this.runBeforeRegularRules(runOptions);
     timingEnd(preRuleText);
 
+    let hasCustomCorrections = false;
+    for (const replacementFileInfo of runOptions.settings.ruleConfigs['auto-correct-common-misspellings']['extra-auto-correct-files'] ?? [] as CustomAutoCorrectContent[]) {
+      if (replacementFileInfo.filePath != '') {
+        hasCustomCorrections = true;
+        break;
+      }
+    }
+
     const disabledRuleText = getTextInLanguage('logs.disabled-text');
     for (const rule of rules) {
       // if you are run prior to or after the regular rules or are a disabled rule, skip running the rule
@@ -68,6 +85,21 @@ export class RulesRunner {
         continue;
       } else if (rule.hasSpecialExecutionOrder || rule.type === RuleType.PASTE) {
         continue;
+      }
+
+      if (rule.alias === 'auto-correct-common-misspellings' && hasCustomCorrections) {
+        let skipRule = false;
+        for (const replacementFileInfo of runOptions.settings.ruleConfigs['auto-correct-common-misspellings']['extra-auto-correct-files'] ?? [] as CustomAutoCorrectContent[]) {
+          if (replacementFileInfo.filePath == runOptions.fileInfo.path) {
+            skipRule = true;
+            break;
+          }
+        }
+
+        if (skipRule) {
+          logDebug(rule.alias + ' ' + disabledRuleText);
+          continue;
+        }
       }
 
       [newText] = RuleBuilderBase.applyIfEnabledBase(rule, newText, runOptions.settings, {
@@ -107,6 +139,10 @@ export class RulesRunner {
       minimumNumberOfDollarSignsToBeAMathBlock: runOptions.settings.commonStyles.minimumNumberOfDollarSignsToBeAMathBlock,
     });
 
+    [newText] = AutoCorrectCommonMisspellings.applyIfEnabled(newText, runOptions.settings, this.disabledRules, {
+      misspellingToCorrection: runOptions.defaultMisspellings,
+    });
+
     return newText;
   }
 
@@ -116,6 +152,18 @@ export class RulesRunner {
     timingBegin(postRuleLogText);
     [newText] = CapitalizeHeadings.applyIfEnabled(newText, runOptions.settings, this.disabledRules);
 
+    [newText] = YamlTitle.applyIfEnabled(newText, runOptions.settings, this.disabledRules, {
+      fileName: runOptions.fileInfo.name,
+      defaultEscapeCharacter: runOptions.settings.commonStyles.escapeCharacter,
+    });
+
+    [newText] = YamlTitleAlias.applyIfEnabled(newText, runOptions.settings, this.disabledRules, {
+      fileName: runOptions.fileInfo.name,
+      aliasArrayStyle: runOptions.settings.commonStyles.aliasArrayStyle,
+      defaultEscapeCharacter: runOptions.settings.commonStyles.escapeCharacter,
+      removeUnnecessaryEscapeCharsForMultiLineArrays: runOptions.settings.commonStyles.removeUnnecessaryEscapeCharsForMultiLineArrays,
+    });
+
     [newText] = BlockquoteStyle.applyIfEnabled(newText, runOptions.settings, this.disabledRules);
 
     [newText] = ForceYamlEscape.applyIfEnabled(newText, runOptions.settings, this.disabledRules, {
@@ -123,6 +171,13 @@ export class RulesRunner {
     });
 
     [newText] = TrailingSpaces.applyIfEnabled(newText, runOptions.settings, this.disabledRules);
+
+    [newText] = ConsecutiveBlankLines.applyIfEnabled(newText, runOptions.settings, this.disabledRules);
+
+    const yaml = newText.match(yamlRegex);
+    if (yaml != null) {
+      [newText] = AddBlankLineAfterYAML.applyIfEnabled(newText, runOptions.settings, this.disabledRules);
+    }
 
     let currentTime = runOptions.getCurrentTime();
     // run YAML timestamp at the end to help determine if something has changed
@@ -135,14 +190,22 @@ export class RulesRunner {
       locale: runOptions.momentLocale,
     });
 
+    if (yaml === null) {
+      [newText] = AddBlankLineAfterYAML.applyIfEnabled(newText, runOptions.settings, this.disabledRules);
+    }
+
     const yamlTimestampOptions = YamlTimestamp.getRuleOptions(runOptions.settings);
 
     currentTime = runOptions.getCurrentTime();
+    if (yamlTimestampOptions.convertToUTC) {
+      currentTime = currentTime.utc();
+    }
     [newText] = YamlKeySort.applyIfEnabled(newText, runOptions.settings, this.disabledRules, {
       currentTimeFormatted: currentTime.format(yamlTimestampOptions.format.trimEnd()),
       yamlTimestampDateModifiedEnabled: isYamlTimestampEnabled && yamlTimestampOptions.dateModified,
       dateModifiedKey: yamlTimestampOptions.dateModifiedKey,
     });
+
     timingEnd(postRuleLogText);
     timingEnd(getTextInLanguage('logs.rule-running'));
     return newText;
@@ -156,7 +219,7 @@ export class RulesRunner {
     logDebug(getTextInLanguage('logs.running-custom-lint-command'));
     const commandsRun = new Set<string>();
     for (const commandInfo of lintCommands) {
-      if (!commandInfo.id) {
+      if (!commandInfo.id || !commandInfo.enabled) {
         continue;
       } else if (commandsRun.has(commandInfo.id)) {
         logWarn(getTextInLanguage('logs.custom-lint-duplicate-warning').replace('{COMMAND_NAME}', commandInfo.name));
@@ -181,12 +244,12 @@ export class RulesRunner {
       for (const eachRegex of customRegexes) {
         const findIsEmpty = eachRegex.find === undefined || eachRegex.find == '' || eachRegex.find === null;
         const replaceIsEmpty = eachRegex.replace === undefined || eachRegex.replace === null;
-        if (findIsEmpty || replaceIsEmpty) {
+        if (findIsEmpty || replaceIsEmpty || !eachRegex.enabled) {
           continue;
         }
 
         let debugMsg = eachRegex.label;
-        if (debugMsg.trim() != '') {
+        if (debugMsg && debugMsg.trim() != '') {
           debugMsg += ':\n';
         }
         debugMsg +=`/${eachRegex.find}/${eachRegex.flags}/${eachRegex.replace}/`;
@@ -228,10 +291,25 @@ export class RulesRunner {
 
     return newText;
   }
+
+  runYAMLTimestampByItself(runOptions: RunLinterRulesOptions): string {
+    let newText = runOptions.oldText;
+
+    const currentTime = runOptions.getCurrentTime();
+    [newText] = YamlTimestamp.applyIfEnabled(newText, runOptions.settings, this.disabledRules, {
+      fileCreatedTime: runOptions.fileInfo.createdAtFormatted,
+      fileModifiedTime: runOptions.fileInfo.modifiedAtFormatted,
+      currentTime: currentTime,
+      alreadyModified: true,
+      locale: runOptions.momentLocale,
+    });
+
+    return newText;
+  }
 }
 
-export function createRunLinterRulesOptions(text: string, file: TFile = null, momentLocale: string, settings: LinterSettings): RunLinterRulesOptions {
-  const createdAt = file ? moment(file.stat.ctime): moment();
+export function createRunLinterRulesOptions(text: string, file: TFile = null, momentLocale: string, settings: LinterSettings, defaultMisspellings: Map<string, string>): RunLinterRulesOptions {
+  const createdAt = (file && file.stat.ctime !== 0) ? moment(file.stat.ctime): moment();
   createdAt.locale(momentLocale);
   const modifiedAt = file ? moment(file.stat.mtime): moment();
   modifiedAt.locale(momentLocale);
@@ -244,6 +322,7 @@ export function createRunLinterRulesOptions(text: string, file: TFile = null, mo
       name: file ? file.basename: '',
       createdAtFormatted: createdAtTime,
       modifiedAtFormatted: modifiedAtTime,
+      path: file ? file.path: '',
     },
     settings: settings,
     momentLocale: momentLocale,
@@ -253,5 +332,6 @@ export function createRunLinterRulesOptions(text: string, file: TFile = null, mo
 
       return currentTime;
     },
+    defaultMisspellings: defaultMisspellings,
   };
 }

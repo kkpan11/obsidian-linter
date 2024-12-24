@@ -11,6 +11,7 @@ import {LinterError} from './linter-error';
 import {getTextInLanguage, LanguageStringKey} from './lang/helpers';
 import {ignoreListOfTypes, IgnoreType} from './utils/ignore-types';
 import {LinterSettings} from './settings-data';
+import {App} from 'obsidian';
 
 export type Options = { [optionName: string]: any};
 
@@ -41,6 +42,7 @@ export class Rule {
    * @param {Array<Option>} [options=[]] - The options of the rule to be displayed in the documentation
    * @param {boolean} [hasSpecialExecutionOrder=false] - The rule has special execution order
    * @param {IgnoreType[]} [ignoreTypes=[]] - The types of elements to ignore for the rule
+   * @param {function(boolean):boolean} [disableConflictingOptions=null] - The function to disable conflicting rules or options when it is enabled
    */
   constructor(
       private nameKey: LanguageStringKey,
@@ -53,10 +55,25 @@ export class Rule {
       public options: Array<Option> = [],
       public readonly hasSpecialExecutionOrder: boolean = false,
       public readonly ignoreTypes: IgnoreType[] = [],
+      disableConflictingOptions: (value: boolean, app: App) => void = null,
   ) {
     this.ruleHeading = this.getName().toLowerCase().replaceAll(' ', '-');
 
-    options.unshift(new BooleanOption('enabled', this.descriptionKey, '' as LanguageStringKey, false));
+    options.unshift(new BooleanOption('enabled', this.descriptionKey, '' as LanguageStringKey, false, alias, (value: boolean, app: App) => {
+      if (value && disableConflictingOptions) {
+        disableConflictingOptions(value, app);
+      }
+
+      if (options.length > 1) {
+        for (let i = 1; i < options.length; i++) {
+          if (value) {
+            options[i].unhide();
+          } else {
+            options[i].hide();
+          }
+        }
+      }
+    }));
     for (const option of options) {
       option.ruleAlias = alias;
     }
@@ -156,7 +173,6 @@ export const ruleTypeToRules = new Map<RuleType, Rule[]>;
 
 export function registerRule(rule: Rule): void {
   rules.push(rule);
-  rules.sort((a, b) => (RuleTypeOrder.indexOf(a.type) - RuleTypeOrder.indexOf(b.type)) || (a.settingsKey.localeCompare(b.settingsKey)));
   rulesDict[rule.alias] = rule;
 
   if (ruleTypeToRules.has(rule.type)) {
@@ -164,6 +180,10 @@ export function registerRule(rule: Rule): void {
   } else {
     ruleTypeToRules.set(rule.type, [rule]);
   }
+}
+
+export function sortRules(): void {
+  rules.sort((a, b) => (RuleTypeOrder.indexOf(a.type) - RuleTypeOrder.indexOf(b.type)) || (a.settingsKey.localeCompare(b.settingsKey)));
 }
 
 export function wrapLintError(error: Error, ruleName: string) {

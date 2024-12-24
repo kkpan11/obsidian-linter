@@ -31,6 +31,10 @@ test-vault/.obsidian/plugins/table-editor-obsidian/*
 # occasional bug fix test
 main.zip
 
+# ignore generated files
+main.js
+styles.css
+
 yarn.lock
 
 .DS_Store
@@ -38,3 +42,4 @@ yarn.lock
 !__mocks__/*.js
 !/.eslintrc.js
 !babel.config.js
+!postcss.config.js

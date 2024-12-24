@@ -1,21 +1,21 @@
-import {Setting, App, Component} from 'obsidian';
+import {Setting, App} from 'obsidian';
 import {getTextInLanguage} from 'src/lang/helpers';
 import {AddCustomRow} from '../components/add-custom-row';
 import CommandSuggester from '../suggesters/command-suggester';
 
-export type LintCommand = { id: string, name: string };
+export type LintCommand = { id: string, name: string, enabled: boolean };
 
 export class CustomCommandOption extends AddCustomRow {
-  constructor(containerEl: HTMLElement, parentComponent: Component, public lintCommands: LintCommand[], private app: App, saveSettings: () => void) {
+  constructor(containerEl: HTMLElement, public lintCommands: LintCommand[], app: App, saveSettings: () => void) {
     super(containerEl,
-        parentComponent,
         getTextInLanguage('options.custom-command.name'),
         getTextInLanguage('options.custom-command.description'),
         getTextInLanguage('options.custom-command.warning'),
         getTextInLanguage('options.custom-command.add-input-button-text'),
+        app,
         saveSettings,
         () => {
-          const newCommand = {id: '', name: ''};
+          const newCommand = {id: '', name: '', enabled: true};
           this.lintCommands.push(newCommand);
           this.saveSettings();
           this.addCommand(newCommand, this.lintCommands.length - 1, true);
@@ -37,7 +37,7 @@ export class CustomCommandOption extends AddCustomRow {
           cb.setPlaceholder(getTextInLanguage('options.custom-command.command-search-placeholder-text'))
               .setValue(command.name)
               .onChange((newCommandName) => {
-                const newCommand = {id: cb.inputEl.getAttribute('commandId'), name: newCommandName};
+                const newCommand = {id: cb.inputEl.getAttribute('commandId'), name: newCommandName, enabled: command.enabled};
 
                 // make sure that the command is valid before making any attempt to save the value
                 if (newCommand.name && newCommand.id) {
@@ -75,12 +75,17 @@ export class CustomCommandOption extends AddCustomRow {
               });
         })
         .addExtraButton((cb) => {
-          cb.setIcon('cross')
+          cb.setIcon('trash')
               .setTooltip(getTextInLanguage('options.custom-command.delete-tooltip'))
               .onClick(() => {
                 this.lintCommands.splice(index, 1);
                 this.saveSettings();
                 this.resetInputEls();
+              });
+        }).addToggle((cb) => {
+          cb.setValue(command.enabled)
+              .onChange((status: boolean) => {
+                command.enabled = status;
               });
         });
   }

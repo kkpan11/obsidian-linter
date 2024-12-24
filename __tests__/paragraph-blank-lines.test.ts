@@ -164,6 +164,7 @@ ruleTest({
         paragraph line 1 <br>
         paragraph line 2  ${''}
         paragraph line 3 <br/>
+        paragraph line 4 \\
         paragraph final line
         ${''}
         ${''}
@@ -174,6 +175,7 @@ ruleTest({
         paragraph line 1 <br>
         paragraph line 2  ${''}
         paragraph line 3 <br/>
+        paragraph line 4 \\
         paragraph final line
         ${''}
       `,
@@ -409,6 +411,158 @@ ruleTest({
         | [[2024-01-25\\|Thursday]] | [[2024-01-26\\|Friday]] |
         | --- | --- |
         | 3 | 4 |
+      `,
+    },
+    { // accounts for https://github.com/platers/obsidian-linter/issues/1014
+      testName: 'List items starting with `*` as the indicator should not be affected',
+      before: dedent`
+        * abc
+        \tabc
+        \tbb
+      `,
+      after: dedent`
+        * abc
+        \tabc
+        \tbb
+      `,
+    },
+    { // accounts for https://github.com/platers/obsidian-linter/issues/1014
+      testName: 'List items starting with `+` as the indicator should not be affected',
+      before: dedent`
+        + abc
+        \tabc
+        \tbb
+      `,
+      after: dedent`
+        + abc
+        \tabc
+        \tbb
+      `,
+    },
+    { // accounts for https://github.com/platers/obsidian-linter/issues/1014
+      testName: 'Ordered list items with an end style of `)` should not be affected',
+      before: dedent`
+        1) abc
+        \tabc
+        \tbb
+      `,
+      after: dedent`
+        1) abc
+        \tabc
+        \tbb
+      `,
+    },
+    { // accounts for https://github.com/platers/obsidian-linter/issues/1014
+      testName: 'Checklists should not be affected',
+      before: dedent`
+        - [ ] abc
+        \tabc
+        \tbb
+        ${''}
+        - [x] abc
+        \tabc
+        \tbb
+        ${''}
+        - [y] abc
+        \tabc
+        \tbb
+        1) [ ] abc
+        \tabc
+        \tbb
+        ${''}
+        2. [x] abc
+        \tabc
+        \tbb
+        ${''}
+        3) [y] abc
+        \tabc
+        \tbb
+      `,
+      after: dedent`
+        - [ ] abc
+        \tabc
+        \tbb
+        ${''}
+        - [x] abc
+        \tabc
+        \tbb
+        ${''}
+        - [y] abc
+        \tabc
+        \tbb
+        1) [ ] abc
+        \tabc
+        \tbb
+        ${''}
+        2. [x] abc
+        \tabc
+        \tbb
+        ${''}
+        3) [y] abc
+        \tabc
+        \tbb
+      `,
+    },
+    { // accounts for https://github.com/platers/obsidian-linter/issues/1014
+      testName: 'Indented checklists should not be affected',
+      before: dedent`
+        - [ ] abc
+        \t- [ ] abc
+        \t\tabc
+        \t\tbb
+        ${''}
+          + [x] abc
+          \tabc
+          \tbb
+        ${''}
+        \t8) [y] abc
+        \t\tabc
+        \t\tbb
+      `,
+      after: dedent`
+        - [ ] abc
+        \t- [ ] abc
+        \t\tabc
+        \t\tbb
+        ${''}
+          + [x] abc
+          \tabc
+          \tbb
+        ${''}
+        \t8) [y] abc
+        \t\tabc
+        \t\tbb
+      `,
+    },
+    { // accounts for https://github.com/platers/obsidian-linter/issues/1014
+      testName: 'Indented list items should not be affected',
+      before: dedent`
+        - abc
+        \t- abc
+        \t\tabc
+        \t\tbb
+        ${''}
+          + abc
+          \tabc
+          \tbb
+        ${''}
+        \t* [y] abc
+        \t\tabc
+        \t\tbb
+      `,
+      after: dedent`
+        - abc
+        \t- abc
+        \t\tabc
+        \t\tbb
+        ${''}
+          + abc
+          \tabc
+          \tbb
+        ${''}
+        \t* [y] abc
+        \t\tabc
+        \t\tbb
       `,
     },
   ],

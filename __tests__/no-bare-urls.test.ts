@@ -160,6 +160,77 @@ ruleTest({
         <https://m3.bbz-dormagen-moodle.de/tag/index.php?tc=1&tag=Nachschreibtermin&from=4817>
       `,
     },
+    {// accounts for https://github.com/platers/obsidian-linter/issues/1029
+      testName: 'Make sure that URLs with percents are properly matched',
+      before: dedent`
+        https://zh.wikipedia.org/wiki/%E5%85%AC%E5%8E%86
+        https://baike.baidu.com/item/%E7%99%BE%E7%A7%91
+        https://www.google.com/search?q=%E7%A9%BA%E6%A0%BC
+        https://cn.bing.com/search?pglt=163&q=%E6%A0%BC%E5%BC%8F%E5%8C%96
+        https://www.google.com/search?q=%E3%81%A1%E3%82%85%E3%81%86%E3%81%94%E3%81%8F%E3%81%94
+      `,
+      after: dedent`
+        <https://zh.wikipedia.org/wiki/%E5%85%AC%E5%8E%86>
+        <https://baike.baidu.com/item/%E7%99%BE%E7%A7%91>
+        <https://www.google.com/search?q=%E7%A9%BA%E6%A0%BC>
+        <https://cn.bing.com/search?pglt=163&q=%E6%A0%BC%E5%BC%8F%E5%8C%96>
+        <https://www.google.com/search?q=%E3%81%A1%E3%82%85%E3%81%86%E3%81%94%E3%81%8F%E3%81%94>
+      `,
+    },
+    {// accounts for https://github.com/platers/obsidian-linter/issues/1030
+      testName: 'Make sure that file URIs with three slashes are properly matched',
+      before: dedent`
+        # Untitled
+
+        file:///C:/Untitled.md
+      `,
+      after: dedent`
+        # Untitled
+
+        <file:///C:/Untitled.md>
+      `,
+      options: {
+        noBareURIs: true,
+      },
+    },
+    {// accounts for https://github.com/platers/obsidian-linter/issues/1050
+      testName: 'Make sure that URls containing an \'@\' are properly matched',
+      before: dedent`
+        https://domain.org/@user
+        https://domain.org/@user/some-kebab-case-path
+        https://domain.org/some-path/@user/some-kebab-case-path
+        https://domain.org/some-path/@user/some-kebab-case-path
+        https://domain.org/some-path/@user/some-kebab-case-path/@user
+        https://domain.org/some-path/@user/some-kebab-case-path#anchor
+        https://domain.org/some-path/@user/some-kebab-case-path#anchor?t=4
+      `,
+      after: dedent`
+        <https://domain.org/@user>
+        <https://domain.org/@user/some-kebab-case-path>
+        <https://domain.org/some-path/@user/some-kebab-case-path>
+        <https://domain.org/some-path/@user/some-kebab-case-path>
+        <https://domain.org/some-path/@user/some-kebab-case-path/@user>
+        <https://domain.org/some-path/@user/some-kebab-case-path#anchor>
+        <https://domain.org/some-path/@user/some-kebab-case-path#anchor?t=4>
+      `,
+      options: {
+        noBareURIs: false,
+      },
+    },
+    {// accounts for https://github.com/platers/obsidian-linter/issues/1084
+      testName: 'Make sure that URls containing `~` are properly matched',
+      before: dedent`
+        https://some.website/~username/
+        <https://some.website/~username/>
+      `,
+      after: dedent`
+        <https://some.website/~username/>
+        <https://some.website/~username/>
+      `,
+      options: {
+        noBareURIs: false,
+      },
+    },
   ],
 });
 

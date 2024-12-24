@@ -297,5 +297,92 @@ ruleTest({
         tagArrayStyle: TagSpecificArrayFormats.SingleStringSpaceDelimited,
       },
     },
+    { // accounts for https://github.com/platers/obsidian-linter/issues/1068
+      testName: 'Make sure that "`" is not valid in a tag',
+      before: dedent`
+        ---
+        title: Note
+        Date: 2023-10-24T23:00:00+08:00
+        lastMod: 2023-11-28T17:36:29+08:00
+        tags: [text, val2]
+        ---
+        ${''}
+        #\`
+      `,
+      after: dedent`
+        ---
+        title: Note
+        Date: 2023-10-24T23:00:00+08:00
+        lastMod: 2023-11-28T17:36:29+08:00
+        tags: [text, val2]
+        ---
+        ${''}
+        #\`
+      `,
+      options: {
+        tagArrayStyle: NormalArrayFormats.SingleLine,
+      },
+    },
+    { // accounts for https://github.com/platers/obsidian-linter/issues/1116
+      testName: 'Make sure that ":" is not valid in a tag',
+      before: dedent`
+        ---
+        title: Note
+        Date: 2023-10-24T23:00:00+08:00
+        lastMod: 2023-11-28T17:36:29+08:00
+        tags: [text, val2]
+        ---
+        ${''}
+        #text:
+      `,
+      after: dedent`
+        ---
+        title: Note
+        Date: 2023-10-24T23:00:00+08:00
+        lastMod: 2023-11-28T17:36:29+08:00
+        tags: [text, val2]
+        ---
+        :
+      `,
+      options: {
+        tagArrayStyle: NormalArrayFormats.SingleLine,
+        howToHandleExistingTags: 'Remove whole tag',
+      },
+    },
+    { // accounts for https://github.com/platers/obsidian-linter/issues/1138
+      testName: 'Make sure that emojis are properly handled as part of the tag',
+      before: dedent`
+        ---
+        title: Note
+        Date: 2023-10-24T23:00:00+08:00
+        lastMod: 2023-11-28T17:36:29+08:00
+        tags: [text, val2]
+        ---
+        ${''}
+        Regular emoji only: #🦾
+        Emoji at end: #test-🦾
+        Emoji in the middle: #test-🦾-test
+        Emoji at the start: #🦾-test
+        Nested emoji: #test/🦾-blob
+      `,
+      after: dedent`
+        ---
+        title: Note
+        Date: 2023-10-24T23:00:00+08:00
+        lastMod: 2023-11-28T17:36:29+08:00
+        tags: [text, val2, 🦾, test-🦾, test-🦾-test, 🦾-test, test/🦾-blob]
+        ---
+        ${''}
+        Regular emoji only:
+        Emoji at end:
+        Emoji in the middle:
+        Emoji at the start:
+        Nested emoji:
+      `,
+      options: {
+        tagArrayStyle: NormalArrayFormats.SingleLine,
+        howToHandleExistingTags: 'Remove whole tag',
+      },
+    },
   ],
 });
